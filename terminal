@@ -1,0 +1,104 @@
+mkdir cross-border-ecommerce
+cd cross-border-ecommerce
+npm init -y 
+mkdir server
+mkdir client 
+cd client
+npx create-react-app . --template typescript
+npm install @ant-design/pro-components @ant-design/icons axios moment
+npm install --save-dev typescript @types/node @types/react @types/react-dom @types/jest @typescript-eslint/eslint-plugin @typescript-eslint/parser
+cd ../server
+npm install express cors mongoose dotenv multer xlsx nodemon
+# 创建 .env 文件
+echo "MONGODB_URI=mongodb://localhost:27017/cross-border-ecommerce\nPORT=5000" > .env
+# 创建上传目录
+mkdir -p uploads/products
+cd ../client
+npm install xlsx file-saver @types/file-saver 
+npm install react@latest react-dom@latest @types/react@latest @types/react-dom@latest --save
+npm install
+cd ../server
+# 确保 MongoDB 已启动
+# Windows: 打开任务管理器检查 MongoDB 服务是否运行
+# Mac/Linux: sudo service mongodb start
+npm start 
+# 新开一个终端窗口
+cd ../client
+npm start 
+
+# 在第一个终端窗口
+cd server
+npm install
+npm start
+
+# 在第二个终端窗口
+cd client
+rm -rf node_modules package-lock.json
+
+# 安装核心依赖
+npm install react@18.2.0 react-dom@18.2.0 antd@5.0.0 @ant-design/icons@4.8.0
+
+# 安装类型声明文件
+npm install --save-dev @types/react@18.2.0 @types/react-dom@18.2.0 @types/node@16.18.0
+
+# 安装其他依赖
+npm install
+
+# 创建 .env 文件
+echo "SKIP_PREFLIGHT_CHECK=true
+GENERATE_SOURCEMAP=false
+TSC_COMPILE_ON_ERROR=true
+DISABLE_ESLINT_PLUGIN=true" > .env
+cd ../server
+# 确保 MongoDB 已启动
+# Windows: 打开任务管理器检查 MongoDB 服务是否运行
+# Mac/Linux: sudo service mongodb start
+npm start 
+# 新开一个终端窗口
+cd ../client
+npm start 
+
+mongod --version 
+
+brew tap mongodb/brew
+brew install mongodb-community
+brew services start mongodb-community 
+
+sudo apt update
+sudo apt install mongodb
+sudo systemctl start mongodb 
+
+# Mac/Linux
+mongo
+# 或
+mongosh
+
+# Windows
+"C:\Program Files\MongoDB\Server\{version}\bin\mongo.exe"
+# 或
+"C:\Program Files\MongoDB\Server\{version}\bin\mongosh.exe" 
+
+# 检查 MongoDB 服务是否运行
+# 打开服务管理器 (services.msc)
+# 找到 "MongoDB" 服务，确保它的状态是 "Running"
+
+# 或者在 PowerShell 中运行：
+Get-Service MongoDB 
+
+# 在 C 盘根目录创建数据目录
+mkdir C:\data\db 
+
+cd client
+find src -type f -name "*.tsx" -exec sed -i '1i\import React, { useEffect, useState } from "react";' {} \; 
+
+cd client
+npm install --save-dev @types/antd @types/react @types/react-dom @types/node @types/jest @types/axios @types/file-saver 
+
+cd client
+npm remove @types/react @types/react-dom
+npm install --save-dev @types/react@18.2.0 @types/react-dom@18.2.0 
+
+cd client
+echo "SKIP_PREFLIGHT_CHECK=true
+GENERATE_SOURCEMAP=false
+REACT_APP_API_URL=http://localhost:5000" > .env 
