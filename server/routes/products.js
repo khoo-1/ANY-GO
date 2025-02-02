@@ -21,7 +21,7 @@ const upload = multer({ storage: storage });
 // 获取商品列表
 router.get('/', async (req, res) => {
   try {
-    const { keyword, category, status } = req.query;
+    const { page = 1, pageSize = 10, keyword, category, status } = req.query;
     let query = {};
 
     if (keyword) {
@@ -42,8 +42,23 @@ router.get('/', async (req, res) => {
       query.stock = 0;
     }
 
-    const products = await Product.find(query).sort({ createdAt: -1 });
-    res.json(products);
+    const skip = (parseInt(page) - 1) * parseInt(pageSize);
+    const total = await Product.countDocuments(query);
+    const products = await Product.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(pageSize));
+
+    res.json({
+      data: {
+        items: products,
+        pagination: {
+          total,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize)
+        }
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
