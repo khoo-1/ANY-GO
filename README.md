@@ -117,10 +117,6 @@ npm start
 
 ## 👥 维护者
 
-- 作者：khooyg
-- 邮箱：khooyg@outlook.com
-- GitHub：https://github.com/khooyg
-
----
+- 作者：khoo
 
 如果这个项目对你有帮助，欢迎 star ⭐️
