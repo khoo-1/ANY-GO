@@ -36,7 +36,7 @@
 
 1. 克隆项目
 ```bash
-git clone https://github.com/yourusername/ANY-GO.git
+git clone https://github.com/khooyg/ANY-GO.git
 cd ANY-GO
 ```
 
@@ -117,9 +117,9 @@ npm start
 
 ## 👥 维护者
 
-- 作者：[Your Name]
-- 邮箱：[Your Email]
-- GitHub：[Your GitHub]
+- 作者：khooyg
+- 邮箱：khooyg@outlook.com
+- GitHub：https://github.com/khooyg
 
 ---
 
