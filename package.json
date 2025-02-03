@@ -4,11 +4,12 @@
   "description": "跨境电商团队协作平台",
   "main": "index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "nodemon server/index.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "client": "cd client && npm start",
     "dev:client": "cd client && set PORT=3000 && set NODE_OPTIONS=--openssl-legacy-provider && npm start",
-    "install:all": "npm install && cd client && npm install"
+    "install:all": "npm install && cd client && npm install",
+    "windows-setup": "powershell ./scripts/setup.ps1"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -22,5 +23,8 @@
   "devDependencies": {
     "@types/lodash": "^4.17.15",
     "nodemon": "^2.0.12"
+  },
+  "os": {
+    "type": "Windows_NT"
   }
 }

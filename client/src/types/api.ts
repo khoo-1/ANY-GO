@@ -33,36 +33,46 @@ export interface ProductCreate extends Omit<Product, 'id' | 'createdAt' | 'updat
 export interface ProductUpdate extends Partial<ProductCreate> {}
 
 // 装箱单相关类型
+export interface BoxSpecs {
+  length: number;
+  width: number;
+  height: number;
+  weight: number;
+  volume: number;
+  edgeVolume: number;
+}
+
+export interface BoxQuantity {
+  boxNo: string;
+  quantity: number;
+  specs: BoxSpecs;
+}
+
 export interface PackingListItem {
   sku: string;
-  quantity: number;
-  boxNo: string;
-  weight?: number;
-  volume?: number;
+  chineseName?: string;
+  boxQuantities: BoxQuantity[];
 }
 
 export interface PackingList {
-  id: string;
+  _id: string;
   storeName: string;
-  type: '普货' | '纺织' | '混装';
-  status: 'pending' | 'approved';
+  type: string;
   totalBoxes: number;
   totalWeight: number;
   totalVolume: number;
   totalPieces: number;
-  totalValue: number;
   items: PackingListItem[];
   remarks?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface PackingListQuery extends QueryParams {
+export interface PackingListQuery {
+  page?: number;
+  pageSize?: number;
   storeName?: string;
-  type?: PackingList['type'];
-  status?: PackingList['status'];
-  startDate?: string;
-  endDate?: string;
+  type?: string;
 }
 
 // 订单相关类型
@@ -93,7 +103,14 @@ export interface ListResponse<T> {
   items: T[];
   pagination: {
     total: number;
-    page: number;
+    current: number;
     pageSize: number;
   };
+}
+
+// API 响应类型
+export interface ApiResponse<T = any> {
+  message?: string;
+  error?: string;
+  data?: T;
 } 

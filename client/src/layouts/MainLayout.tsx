@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Spin } from 'antd';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { ShopOutlined, GiftOutlined } from '@ant-design/icons';
+import { ShoppingOutlined, UnorderedListOutlined } from '@ant-design/icons';
 
 const { Header, Content, Footer } = Layout;
+
+const menuItems = [
+  {
+    key: '1',
+    icon: <ShoppingOutlined />,
+    label: <Link to="/products">商品管理</Link>
+  },
+  {
+    key: '2',
+    icon: <UnorderedListOutlined />,
+    label: <Link to="/packing-lists">装箱单管理</Link>
+  }
+];
 
 const MainLayout: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
+  const selectedKey = location.pathname === '/products' || location.pathname === '/' ? '1' : '2';
 
   useEffect(() => {
     // 模拟检查后端服务状态
@@ -48,15 +62,9 @@ const MainLayout: React.FC = () => {
         <Menu 
           theme="dark" 
           mode="horizontal" 
-          selectedKeys={[location.pathname === '/' ? '1' : '2']}
-        >
-          <Menu.Item key="1" icon={<ShopOutlined />}>
-            <Link to="/">商品管理</Link>
-          </Menu.Item>
-          <Menu.Item key="2" icon={<GiftOutlined />}>
-            <Link to="/packing-lists">装箱单管理</Link>
-          </Menu.Item>
-        </Menu>
+          selectedKeys={[selectedKey]}
+          items={menuItems}
+        />
       </Header>
       <Content style={{ padding: '24px 50px' }}>
         <div style={{ background: '#fff', padding: 24, minHeight: 280 }}>

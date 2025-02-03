@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const PackingList = require('../models/PackingList');
 const Product = require('../models/Product');
+const mongoose = require('mongoose');
 
 // 确保上传目录存在
 const uploadDir = path.join(__dirname, '../uploads/packingLists');
@@ -19,9 +20,8 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // 解码文件名
-    const originalName = decodeURIComponent(escape(file.originalname));
-    // 保留原始文件名，但确保文件名是唯一的
+    // 对原始文件名进行解码
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, uniqueSuffix + '-' + originalName);
   }
@@ -43,47 +43,43 @@ const upload = multer({
 // 获取装箱单列表
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, storeName, type, status, startDate, endDate } = req.query;
-    let query = {};
-
+    const { page = 1, pageSize = 10, storeName, type } = req.query;
+    const query = {};
+    
     if (storeName) {
       query.storeName = new RegExp(storeName, 'i');
     }
     if (type) {
       query.type = type;
     }
-    if (status) {
-      query.status = status;
-    }
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) {
-        query.createdAt.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        query.createdAt.$lte = new Date(endDate);
-      }
-    }
 
-    const skip = (parseInt(page) - 1) * parseInt(pageSize);
+    console.log('查询条件:', query);
+    console.log('分页参数:', { page, pageSize });
+
     const total = await PackingList.countDocuments(query);
-    const packingLists = await PackingList.find(query)
+    const items = await PackingList.find(query)
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(pageSize));
+      .skip((parseInt(page) - 1) * parseInt(pageSize))
+      .limit(parseInt(pageSize))
+      .lean();
+
+    console.log('查询结果:', { total, itemsCount: items.length });
 
     res.json({
-      data: {
-        items: packingLists,
-        pagination: {
-          total,
-          page: parseInt(page),
-          pageSize: parseInt(pageSize)
-        }
+      items,
+      pagination: {
+        total,
+        current: parseInt(page),
+        pageSize: parseInt(pageSize)
       }
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('获取装箱单列表时出错:', error);
+    res.status(500).json({ 
+      message: '获取列表失败', 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
@@ -91,220 +87,160 @@ router.get('/', async (req, res) => {
 router.post('/import', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: '请上传文件' });
+      return res.status(400).json({ 
+        message: '请选择要导入的文件',
+        error: 'No file uploaded'
+      });
     }
 
-    // 解码文件名并提取店铺名称
-    const originalName = decodeURIComponent(escape(req.file.originalname));
-    const storeName = PackingList.extractStoreNameFromFileName(originalName);
+    // 对文件名进行解码
+    const originalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+    console.log('原始文件名:', originalName);
+
+    // 从文件名中提取店铺名称
+    const storeNameMatch = originalName.match(/^(.+?)海运ERP\.xlsx?$/i);
+    if (!storeNameMatch) {
+      throw new Error('文件命名格式不正确，应为：{店铺名}海运ERP.xlsx');
+    }
+
+    const storeName = storeNameMatch[1].trim();
+    if (!storeName) {
+      throw new Error('店铺名称不能为空');
+    }
+
+    console.log('提取的店铺名称:', storeName);
 
     const workbook = xlsx.readFile(req.file.path);
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-
-    // 读取装箱单头部信息
-    const type = worksheet['D1']?.v || '普货';
-    const totalBoxes = Number(worksheet['B1']?.v) || 0;
-    const totalWeight = Number(worksheet['B2']?.v) || 0;
-    const totalVolume = Number(worksheet['B3']?.v) || 0;
-    const totalPieces = Number(worksheet['B6']?.v) || 0;
-    const totalValue = Number(worksheet['D2']?.v) || 0;
-
-    if (!totalBoxes || !totalWeight || !totalVolume || !totalPieces || !totalValue) {
-      throw new Error('装箱单头部信息不完整，请检查B1(总箱数)、B2(总重量)、B3(总体积)、B6(总件数)、D2(总价值)等单元格');
-    }
-
-    // 读取箱子规格信息
-    const boxes = [];
-    let currentCol = 'F';
     
-    // 检查是否存在箱规数据
-    while (true) {
-      // 检查是否有箱规数据（通过检查长度是否存在）
-      const lengthCell = worksheet[currentCol + '1'];
-      if (!lengthCell || !lengthCell.v) {
-        break; // 如果没有长度数据，说明没有更多箱子了
-      }
+    // 跳过"常用箱规"sheet
+    const sheets = workbook.SheetNames.filter(name => name !== '常用箱规');
+    if (sheets.length === 0) {
+      throw new Error('Excel文件中没有找到有效的工作表');
+    }
 
-      const nextCol = String.fromCharCode(currentCol.charCodeAt(0) + 1);
-      const nextNextCol = String.fromCharCode(currentCol.charCodeAt(0) + 2);
+    console.log('找到工作表:', sheets);
+    const results = [];
+    
+    for (const sheetName of sheets) {
+      console.log('处理工作表:', sheetName);
+      const worksheet = workbook.Sheets[sheetName];
       
-      try {
-        // 读取长宽高
-        const length = worksheet[currentCol + '1']?.v;
-        const width = worksheet[nextCol + '1']?.v;
-        const height = worksheet[nextNextCol + '1']?.v;
-        
-        if (!length || !width || !height) {
-          throw new Error(`箱规数据不完整：${currentCol}列的长宽高数据缺失`);
+      // 读取表头信息
+      const type = worksheet['D1']?.v || '普货';  // 类型
+      const totalBoxes = worksheet['B1']?.v || 0;  // 总箱数
+      const totalWeight = worksheet['B2']?.v || 0;  // 总重量
+      const totalVolume = worksheet['B3']?.v || 0;  // 总体积
+      const totalEdgeVolume = worksheet['B4']?.v || 0;  // 总边加一体积
+      const totalPieces = worksheet['B6']?.v || 0;  // 总件数
+      const totalValue = worksheet['D2']?.v || 0;  // 总价格
+
+      // 处理箱规信息
+      const boxSpecs = [];
+      let currentCol = 'F';
+      while (worksheet[currentCol + '1']) {
+        const specs = {
+          boxNo: worksheet[currentCol + '7']?.v,
+          length: worksheet[currentCol + '1']?.v,
+          width: worksheet[String.fromCharCode(currentCol.charCodeAt(0) + 1) + '1']?.v,
+          height: worksheet[String.fromCharCode(currentCol.charCodeAt(0) + 2) + '1']?.v,
+          weight: worksheet[currentCol + '2']?.v,
+          volume: worksheet[currentCol + '3']?.v,
+          edgeVolume: worksheet[currentCol + '4']?.v,
+          pieces: worksheet[currentCol + '6']?.v
+        };
+        if (specs.boxNo) {
+          boxSpecs.push(specs);
         }
-
-        // 读取其他规格信息
-        const weight = worksheet[currentCol + '2']?.v;  // 箱重
-        const volume = worksheet[currentCol + '3']?.v;  // 体积
-        const edgeVolume = worksheet[currentCol + '4']?.v;  // 单边+1体积
-        const totalPieces = worksheet[currentCol + '6']?.v;  // 该箱总件数
-        const boxNo = worksheet[currentCol + '7']?.v;  // 箱号
-
-        if (!weight || !volume || !edgeVolume || !totalPieces || !boxNo) {
-          throw new Error(`箱规数据不完整：${currentCol}列缺少必要的规格信息`);
-        }
-
-        boxes.push({
-          boxNo: boxNo.toString(),
-          specs: {
-            length: Number(length),
-            width: Number(width),
-            height: Number(height),
-            weight: Number(weight),
-            volume: Number(volume),
-            edgeVolume: Number(edgeVolume),
-            totalPieces: Number(totalPieces)
-          }
-        });
-
-        // 移动到下一个箱子（每个箱子占3列）
+        // 移动到下一个箱子（每个箱子占用3列）
         currentCol = String.fromCharCode(currentCol.charCodeAt(0) + 3);
-      } catch (error) {
-        console.error(`读取箱规数据时出错 (列 ${currentCol}):`, error);
-        throw new Error(`读取箱规数据时出错：${error.message}`);
       }
-    }
 
-    if (boxes.length === 0) {
-      throw new Error('未找到有效的箱规数据');
-    }
-
-    console.log('成功读取箱规数据:', boxes);
-
-    // 读取产品信息
-    const items = [];
-    let row = 8;
-    while (worksheet['B' + row]) {
-      try {
-        const skuCell = worksheet['B' + row];
-        const chineseNameCell = worksheet['C' + row];
+      // 处理商品数据（从第8行开始）
+      const items = [];
+      let row = 8;
+      while (worksheet['B' + row]) {
+        const sku = worksheet['B' + row]?.v;
+        const chineseName = worksheet['C' + row]?.v;
         
-        if (!skuCell || !skuCell.v) {
-          break; // 如果没有SKU，说明数据已经结束
-        }
-
-        const sku = skuCell.v;
-        const chineseName = chineseNameCell?.v;
-        const boxQuantities = [];
-
-        // 读取每个箱子的数量
-        for (let i = 0; i < boxes.length; i++) {
-          const box = boxes[i];
-          const col = String.fromCharCode('F'.charCodeAt(0) + i * 3); // 每个箱子间隔3列
-          const quantityCell = worksheet[col + row];
+        if (sku) {
+          const boxQuantities = [];
+          let totalQuantity = 0; // 添加总数量计算
           
-          if (quantityCell && quantityCell.v !== undefined && quantityCell.v !== null) {
-            const quantity = Number(quantityCell.v);
-            if (!isNaN(quantity) && quantity > 0) {
+          // 遍历每个箱子的数量
+          for (let i = 0; i < boxSpecs.length; i++) {
+            const col = String.fromCharCode('F'.charCodeAt(0) + i * 3);
+            const quantity = parseInt(worksheet[col + row]?.v) || 0;
+            if (quantity > 0) {
               boxQuantities.push({
-                boxNo: box.boxNo,
-                quantity: quantity,
-                specs: box.specs
+                boxNo: boxSpecs[i].boxNo.toString(),
+                quantity,
+                specs: {
+                  length: boxSpecs[i].length,
+                  width: boxSpecs[i].width,
+                  height: boxSpecs[i].height,
+                  weight: boxSpecs[i].weight,
+                  volume: boxSpecs[i].volume,
+                  edgeVolume: boxSpecs[i].edgeVolume
+                }
               });
+              totalQuantity += quantity; // 累加总数量
             }
           }
+
+          if (boxQuantities.length > 0) {
+            items.push({
+              sku,
+              chineseName: chineseName || `待补充(${sku})`,
+              quantity: totalQuantity, // 添加总数量字段
+              boxQuantities
+            });
+          }
         }
-
-        // 计算总数量
-        const totalQuantity = boxQuantities.reduce((sum, bq) => sum + bq.quantity, 0);
-
-        if (totalQuantity > 0) {
-          items.push({
-            sku,
-            chineseName,
-            quantity: totalQuantity,
-            boxQuantities
-          });
-        }
-
         row++;
-      } catch (error) {
-        console.error(`处理第 ${row} 行数据时出错:`, error);
-        throw new Error(`处理第 ${row} 行数据时出错: ${error?.message || '未知错误'}`);
       }
-    }
 
-    if (items.length === 0) {
-      throw new Error('未找到有效的商品数据');
-    }
-
-    console.log('成功读取商品数据:', items);
-
-    // 创建装箱单
-    const packingList = new PackingList({
-      storeName,
-      type,
-      status: 'pending',
-      totalBoxes,
-      totalWeight,
-      totalVolume,
-      totalPieces,
-      totalValue,
-      items,
-      remarks: `从Excel导入于 ${new Date().toLocaleString()}`
-    });
-
-    // 先创建不存在的SKU
-    const distinctSkus = [...new Set(items.map(item => item.sku))];
-    const existingProducts = await Product.find({ sku: { $in: distinctSkus } });
-    const existingSkus = existingProducts.map(p => p.sku);
-    
-    const newSkus = distinctSkus.filter(sku => !existingSkus.includes(sku));
-    if (newSkus.length > 0) {
-      console.log('需要创建的新SKU:', newSkus);
-      const newProducts = newSkus.map(sku => {
-        const item = items.find(i => i.sku === sku);
-        return {
-          sku,
-          name: `待补充(${sku})`,
-          chineseName: item.chineseName || `待补充(${sku})`,
-          type,
-          price: 0,
-          stock: 0,
-          isAutoCreated: true,
-          needsCompletion: true
-        };
-      });
-      
-      await Product.insertMany(newProducts);
-      console.log('新SKU创建完成');
-    }
-
-    try {
-      await packingList.save();
-      console.log('装箱单保存成功:', {
+      // 创建装箱单记录
+      const packingList = {
         storeName,
         type,
         totalBoxes,
+        totalWeight,
+        totalVolume,
+        totalEdgeVolume,
+        totalPieces,
         totalValue,
-        itemsCount: items.length
-      });
-      res.json({ message: '装箱单导入成功' });
-    } catch (error) {
-      console.error('保存装箱单时出错:', error);
-      if (error.name === 'ValidationError') {
-        const validationErrors = Object.keys(error.errors).map(key => 
-          `${key}: ${error.errors[key].message}`
-        ).join('; ');
-        throw new Error(`数据验证失败: ${validationErrors}`);
-      }
-      throw error;
+        items
+      };
+
+      console.log('创建装箱单:', packingList);
+      const savedPackingList = await PackingList.create(packingList);
+      console.log('保存成功，ID:', savedPackingList._id);
+      results.push(savedPackingList);
     }
 
+    // 删除临时文件
+    fs.unlinkSync(req.file.path);
+    console.log('临时文件已删除');
+
+    const response = {
+      message: `成功导入 ${results.length} 个装箱单`,
+      data: results
+    };
+    console.log('返回响应:', response);
+    res.json(response);
   } catch (error) {
     console.error('导入装箱单时出错:', error);
-    const errorMessage = error?.message || (typeof error === 'string' ? error : '导入装箱单时发生未知错误');
-    res.status(400).json({ message: errorMessage });
-  } finally {
     // 删除临时文件
-    if (req.file && fs.existsSync(req.file.path)) {
+    if (req.file && req.file.path) {
       fs.unlinkSync(req.file.path);
+      console.log('出错后临时文件已删除');
     }
+    
+    res.status(500).json({ 
+      message: '导入失败: ' + error.message,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
@@ -339,16 +275,157 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// 导出装箱单
+router.get('/:id/download', async (req, res) => {
+  try {
+    const packingList = await PackingList.findById(req.params.id);
+    if (!packingList) {
+      return res.status(404).json({ message: '装箱单不存在' });
+    }
+
+    // 创建工作簿
+    const workbook = xlsx.utils.book_new();
+    
+    // 创建工作表
+    const worksheet = xlsx.utils.aoa_to_sheet([
+      ['总箱数', packingList.totalBoxes],
+      ['总重量', packingList.totalWeight],
+      ['总体积', packingList.totalVolume],
+      ['总件数', packingList.totalPieces],
+      [],
+      ['SKU', '中文名', '数量', '箱号', '规格', '重量', '体积']
+    ]);
+
+    // 添加商品数据
+    const data = [];
+    packingList.items.forEach(item => {
+      item.boxQuantities.forEach(bq => {
+        data.push([
+          item.sku,
+          item.chineseName || '',
+          bq.quantity,
+          bq.boxNo,
+          `${bq.specs.length}×${bq.specs.width}×${bq.specs.height}`,
+          bq.specs.weight,
+          bq.specs.volume
+        ]);
+      });
+    });
+
+    // 将数据添加到工作表
+    xlsx.utils.sheet_add_aoa(worksheet, data, { origin: 6 });
+
+    // 将工作表添加到工作簿
+    xlsx.utils.book_append_sheet(workbook, worksheet, '装箱单');
+
+    // 生成 Excel 文件
+    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=装箱单_${packingList.storeName}_${Date.now()}.xlsx`);
+
+    // 发送文件
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error('导出装箱单时出错:', error);
+    res.status(500).json({ message: '导出失败', error: error.message });
+  }
+});
+
+// 批量导出装箱单
+router.post('/batch-download', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: '请选择要导出的装箱单' });
+    }
+
+    const packingLists = await PackingList.find({ _id: { $in: ids } });
+    if (packingLists.length === 0) {
+      return res.status(404).json({ message: '未找到要导出的装箱单' });
+    }
+
+    // 创建工作簿
+    const workbook = xlsx.utils.book_new();
+
+    // 为每个装箱单创建一个工作表
+    packingLists.forEach(packingList => {
+      const worksheet = xlsx.utils.aoa_to_sheet([
+        ['总箱数', packingList.totalBoxes],
+        ['总重量', packingList.totalWeight],
+        ['总体积', packingList.totalVolume],
+        ['总件数', packingList.totalPieces],
+        [],
+        ['SKU', '中文名', '数量', '箱号', '规格', '重量', '体积']
+      ]);
+
+      const data = [];
+      packingList.items.forEach(item => {
+        item.boxQuantities.forEach(bq => {
+          data.push([
+            item.sku,
+            item.chineseName || '',
+            bq.quantity,
+            bq.boxNo,
+            `${bq.specs.length}×${bq.specs.width}×${bq.specs.height}`,
+            bq.specs.weight,
+            bq.specs.volume
+          ]);
+        });
+      });
+
+      xlsx.utils.sheet_add_aoa(worksheet, data, { origin: 6 });
+      xlsx.utils.book_append_sheet(workbook, worksheet, `${packingList.storeName}`);
+    });
+
+    // 生成 Excel 文件
+    const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=装箱单批量导出_${Date.now()}.xlsx`);
+
+    // 发送文件
+    res.send(excelBuffer);
+  } catch (error) {
+    console.error('批量导出装箱单时出错:', error);
+    res.status(500).json({ message: '批量导出失败', error: error.message });
+  }
+});
+
 // 删除装箱单
 router.delete('/:id', async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: '无效的ID格式' });
+    }
+
     const packingList = await PackingList.findByIdAndDelete(req.params.id);
     if (!packingList) {
       return res.status(404).json({ message: '装箱单不存在' });
     }
-    res.json({ message: '删除成功' });
+    res.json({ message: '删除成功', data: packingList });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('删除装箱单时出错:', error);
+    res.status(500).json({ message: '删除失败', error: error.message });
+  }
+});
+
+// 批量删除装箱单
+router.delete('/', async (req, res) => {
+  try {
+    const result = await PackingList.deleteMany({});
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: '没有找到要删除的装箱单' });
+    }
+    res.json({ 
+      message: `成功删除 ${result.deletedCount} 个装箱单`,
+      data: { deletedCount: result.deletedCount }
+    });
+  } catch (error) {
+    console.error('批量删除装箱单时出错:', error);
+    res.status(500).json({ message: '批量删除失败', error: error.message });
   }
 });
 
