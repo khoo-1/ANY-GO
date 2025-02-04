@@ -72,8 +72,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
         }
       });
 
-      if (isEdit) {
-        await productService.update(product.id, formData);
+      if (isEdit && product) {
+        await productService.update(product._id, formData);
         message.success('更新成功');
       } else {
         await productService.create(formData);

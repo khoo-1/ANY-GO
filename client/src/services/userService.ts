@@ -1,4 +1,4 @@
-import http from '../utils/http';
+import { http } from '../utils/http';
 import { User, ListResponse } from '../types/api';
 
 export interface UserQuery {

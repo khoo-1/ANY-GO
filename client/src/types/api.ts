@@ -2,20 +2,22 @@ import { PaginationParams, QueryParams } from './index';
 
 // 商品相关类型
 export interface Product {
+  _id: string;
   id: string;
   sku: string;
+  name: string;
   chineseName: string;
-  type: '普货' | '纺织' | '混装';
+  type: 'normal' | 'textile' | 'mixed';
   category?: string;
   cost: number;
   freightCost: number;
   stock: number;
-  alertThreshold: number;
+  alertThreshold?: number;
   status: 'active' | 'inactive';
   description?: string;
   images?: string[];
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface ProductQuery {
@@ -23,6 +25,7 @@ export interface ProductQuery {
   pageSize?: number;
   keyword?: string;
   type?: string;
+  status?: string;
   minCost?: number;
   maxCost?: number;
 }
@@ -34,12 +37,7 @@ export interface ProductUpdate extends Partial<ProductCreate> {}
 export interface BoxQuantity {
   boxNo: string;
   quantity: number;
-  specs?: {
-    length?: number;
-    width?: number;
-    height?: number;
-    weight?: number;
-  };
+  specs?: string;
 }
 
 export interface PackingItem {
@@ -53,15 +51,19 @@ export interface PackingItem {
 export interface PackingList {
   _id: string;
   storeName: string;
-  type: string;
-  items: PackingItem[];
+  type: 'normal' | 'textile' | 'mixed';
   totalBoxes: number;
-  totalPieces: number;
   totalWeight: number;
   totalVolume: number;
+  totalValue: number;
+  totalPieces: number;
+  status: 'pending' | 'approved';
+  items: PackingListItem[];
   remarks?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt?: Date;
+  approvedAt?: Date;
+  approvedBy?: string;
 }
 
 export interface PackingListQuery {
@@ -104,9 +106,9 @@ export interface User {
   role: 'admin' | 'manager' | 'operator';
   permissions: string[];
   status: 'active' | 'inactive';
-  lastLoginAt?: string;
-  createdAt: string;
-  updatedAt: string;
+  lastLoginAt?: Date;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 // 操作日志相关类型
@@ -114,46 +116,87 @@ export interface OperationLog {
   _id: string;
   userId: string;
   username: string;
-  module: 'products' | 'packingLists' | 'users' | 'system';
-  action: 'create' | 'update' | 'delete' | 'read' | 'import' | 'export' | 'backup';
+  module: string;
+  action: string;
   description: string;
-  details?: any;
-  ip?: string;
-  userAgent?: string;
+  details: {
+    method: string;
+    url: string;
+    body?: any;
+    params?: any;
+    query?: any;
+  };
+  ip: string;
+  userAgent: string;
   status: 'success' | 'failure';
-  createdAt: string;
+  createdAt: Date;
 }
 
 // 备份相关类型
 export interface Backup {
   _id: string;
   filename: string;
-  size: number;
   type: 'full' | 'products' | 'packingLists';
-  status: 'pending' | 'completed' | 'failed';
+  size: number;
   path: string;
-  createdBy: {
-    _id: string;
-    username: string;
-  };
-  description?: string;
+  status: 'pending' | 'completed' | 'failed';
   error?: string;
-  createdAt: string;
-  completedAt?: string;
+  createdBy: string;
+  createdAt: Date;
+  completedAt?: Date;
 }
 
 // 通用响应类型
+export interface ApiResponse<T> {
+  code?: number;
+  data: T;
+  message?: string;
+}
+
+// 列表响应类型
 export interface ListResponse<T> {
+  code?: number;
   items: T[];
   pagination: {
     total: number;
     current: number;
     pageSize: number;
   };
+  message?: string;
 }
 
-export interface ApiResponse<T = any> {
-  success: boolean;
-  message: string;
-  data: T;
+// 装箱单明细类型
+export interface PackingListItem {
+  product: string | Product;
+  boxQuantities: BoxQuantity[];
+  totalQuantity: number;
+  sku: string;
+  chineseName: string;
+}
+
+// 查询参数类型
+export interface BaseQuery {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+}
+
+export interface UserQuery extends BaseQuery {
+  role?: string;
+  status?: string;
+}
+
+export interface LogQuery extends BaseQuery {
+  module?: string;
+  action?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface BackupQuery extends BaseQuery {
+  type?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
 } 

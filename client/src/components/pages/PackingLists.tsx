@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Table, Button, Space, message, Modal, Input, Select, Upload, DatePicker, Tabs, Divider, Checkbox, Radio, Form } from 'antd';
 import { UploadOutlined, SearchOutlined, CheckCircleOutlined, DeleteOutlined, DownloadOutlined, PrinterOutlined } from '@ant-design/icons';
-import { PackingList, PackingListQuery } from '../../types/api';
+import { PackingList, PackingListQuery, BoxQuantity } from '../../types/api';
 import { packingListService } from '../../services/packingListService';
 import { handleError } from '../../utils/errorHandler';
 import { AxiosError } from 'axios';
@@ -57,45 +57,10 @@ const detailColumns = [
     width: 80
   },
   {
-    title: '箱规格',
-    children: [
-      { 
-        title: '长(cm)',
-        dataIndex: ['specs', 'length'],
-        key: 'length',
-        width: 80
-      },
-      { 
-        title: '宽(cm)',
-        dataIndex: ['specs', 'width'],
-        key: 'width',
-        width: 80
-      },
-      { 
-        title: '高(cm)',
-        dataIndex: ['specs', 'height'],
-        key: 'height',
-        width: 80
-      }
-    ]
-  },
-  { 
-    title: '重量(kg)',
-    dataIndex: ['specs', 'weight'],
-    key: 'weight',
-    width: 100
-  },
-  { 
-    title: '体积(m³)',
-    dataIndex: ['specs', 'volume'],
-    key: 'volume',
-    width: 100
-  },
-  { 
-    title: '单边+1(m³)',
-    dataIndex: ['specs', 'edgeVolume'],
-    key: 'edgeVolume',
-    width: 100
+    title: '规格',
+    dataIndex: 'specs',
+    key: 'specs',
+    width: 200
   }
 ];
 
@@ -197,20 +162,33 @@ const PrintPreview: React.FC<{
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: any[] } = {};
     packingList.items.forEach(item => {
-      item.boxQuantities.forEach(bq => {
-        if (!groups[bq.boxNo]) {
-          groups[bq.boxNo] = [];
-        }
-        groups[bq.boxNo].push({
-          ...item,
-          quantity: bq.quantity,
-          specs: bq.specs,
-          boxNo: bq.boxNo
+      if (Array.isArray(item.boxQuantities)) {
+        item.boxQuantities.forEach((bq: BoxQuantity) => {
+          if (!groups[bq.boxNo]) {
+            groups[bq.boxNo] = [];
+          }
+          groups[bq.boxNo].push({
+            ...item,
+            quantity: bq.quantity,
+            specs: bq.specs || '',
+            boxNo: bq.boxNo
+          });
         });
-      });
+      }
     });
     return groups;
   }, [packingList.items]);
+
+  // 计算每个箱子的合计
+  const boxSummaries = useMemo(() => {
+    const summaries: { [key: string]: { totalQuantity: number } } = {};
+    Object.entries(groupedItems).forEach(([boxNo, items]) => {
+      summaries[boxNo] = items.reduce((acc, item) => ({
+        totalQuantity: acc.totalQuantity + (item.quantity || 0)
+      }), { totalQuantity: 0 });
+    });
+    return summaries;
+  }, [groupedItems]);
 
   return (
     <Modal
@@ -249,6 +227,7 @@ const PrintPreview: React.FC<{
               </div>
               <div>
                 <div>总箱数：{packingList.totalBoxes} 箱</div>
+                <div>总数量：{packingList.totalPieces} 件</div>
                 <div>总重量：{packingList.totalWeight.toFixed(2)} kg</div>
                 <div>总体积：{packingList.totalVolume.toFixed(3)} m³</div>
               </div>
@@ -257,50 +236,33 @@ const PrintPreview: React.FC<{
         )}
 
         {options.sections.includes('items') && (
-          <>
+          <div>
             {Object.entries(groupedItems).map(([boxNo, items]) => (
-              <div key={boxNo} style={{ marginBottom: 24, pageBreakInside: 'avoid' }}>
-                <h2>箱号：{boxNo}</h2>
-                {options.printMode === 'detailed' ? (
-                  <>
-                    <div style={{ marginBottom: 8 }}>
-                      <Space>
-                        <span>规格：{items[0].specs.length} × {items[0].specs.width} × {items[0].specs.height} cm</span>
-                        <Divider type="vertical" />
-                        <span>重量：{items[0].specs.weight.toFixed(2)} kg</span>
-                        <Divider type="vertical" />
-                        <span>体积：{items[0].specs.volume.toFixed(3)} m³</span>
-                      </Space>
-                    </div>
-                    <Table
-                      columns={[
-                        { title: 'SKU', dataIndex: 'sku', width: 150 },
-                        { title: '中文名', dataIndex: 'chineseName', width: 200 },
-                        { title: '数量', dataIndex: 'quantity', width: 100 },
-                        { title: '重量', dataIndex: ['specs', 'weight'], width: 100 },
-                        { title: '体积', dataIndex: ['specs', 'volume'], width: 100 }
-                      ]}
-                      dataSource={items}
-                      pagination={false}
-                      size="small"
-                      rowKey={(record) => `${record.boxNo}-${record.sku}-${record.quantity}`}
-                    />
-                  </>
-                ) : (
-                  <Table
-                    columns={[
-                      { title: 'SKU', dataIndex: 'sku', width: 150 },
-                      { title: '数量', dataIndex: 'quantity', width: 100 }
-                    ]}
-                    dataSource={items}
-                    pagination={false}
-                    size="small"
-                    rowKey={(record) => `${record.boxNo}-${record.sku}-${record.quantity}`}
-                  />
-                )}
+              <div key={boxNo} style={{ marginBottom: 24 }}>
+                <h3>{boxNo}号箱</h3>
+                <Table
+                  columns={detailColumns}
+                  dataSource={items}
+                  rowKey={(record) => `${record.boxNo}-${record.sku}-${record.quantity}`}
+                  pagination={false}
+                  size="small"
+                  summary={() => (
+                    <Table.Summary fixed="bottom">
+                      <Table.Summary.Row>
+                        <Table.Summary.Cell index={0} colSpan={3} align="right">
+                          <strong>箱子合计：</strong>
+                        </Table.Summary.Cell>
+                        <Table.Summary.Cell index={3}>
+                          <strong>{boxSummaries[boxNo].totalQuantity}</strong>
+                        </Table.Summary.Cell>
+                        <Table.Summary.Cell index={4} />
+                      </Table.Summary.Row>
+                    </Table.Summary>
+                  )}
+                />
               </div>
             ))}
-          </>
+          </div>
         )}
 
         <div style={{ marginTop: 24 }}>
@@ -364,30 +326,30 @@ const PackingListDetail: React.FC<{
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: any[] } = {};
     packingList.items.forEach(item => {
-      item.boxQuantities.forEach(bq => {
-        if (!groups[bq.boxNo]) {
-          groups[bq.boxNo] = [];
-        }
-        groups[bq.boxNo].push({
-          ...item,
-          quantity: bq.quantity,
-          specs: bq.specs,
-          boxNo: bq.boxNo
+      if (Array.isArray(item.boxQuantities)) {
+        item.boxQuantities.forEach((bq: BoxQuantity) => {
+          if (!groups[bq.boxNo]) {
+            groups[bq.boxNo] = [];
+          }
+          groups[bq.boxNo].push({
+            ...item,
+            quantity: bq.quantity,
+            specs: bq.specs || '',
+            boxNo: bq.boxNo
+          });
         });
-      });
+      }
     });
     return groups;
   }, [packingList.items]);
 
   // 计算每个箱子的合计
   const boxSummaries = useMemo(() => {
-    const summaries: { [key: string]: { totalQuantity: number; totalWeight: number; totalVolume: number } } = {};
+    const summaries: { [key: string]: { totalQuantity: number } } = {};
     Object.entries(groupedItems).forEach(([boxNo, items]) => {
       summaries[boxNo] = items.reduce((acc, item) => ({
-        totalQuantity: acc.totalQuantity + item.quantity,
-        totalWeight: acc.totalWeight + (item.specs.weight || 0),
-        totalVolume: acc.totalVolume + (item.specs.volume || 0)
-      }), { totalQuantity: 0, totalWeight: 0, totalVolume: 0 });
+        totalQuantity: acc.totalQuantity + (item.quantity || 0)
+      }), { totalQuantity: 0 });
     });
     return summaries;
   }, [groupedItems]);
@@ -425,7 +387,7 @@ const PackingListDetail: React.FC<{
           <div>
             <div style={{ fontWeight: 'bold', marginBottom: 4 }}>箱数信息</div>
             <div>总箱数：{packingList.totalBoxes} 箱</div>
-            <div>总件数：{packingList.totalPieces} 件</div>
+            <div>总数量：{packingList.totalPieces} 件</div>
           </div>
           <div>
             <div style={{ fontWeight: 'bold', marginBottom: 4 }}>重量体积</div>
@@ -458,14 +420,7 @@ const PackingListDetail: React.FC<{
                       <Table.Summary.Cell index={3}>
                         <strong>{boxSummaries[boxNo].totalQuantity}</strong>
                       </Table.Summary.Cell>
-                      <Table.Summary.Cell index={4} colSpan={3} />
-                      <Table.Summary.Cell index={7}>
-                        <strong>{boxSummaries[boxNo].totalWeight.toFixed(2)}</strong>
-                      </Table.Summary.Cell>
-                      <Table.Summary.Cell index={8}>
-                        <strong>{boxSummaries[boxNo].totalVolume.toFixed(3)}</strong>
-                      </Table.Summary.Cell>
-                      <Table.Summary.Cell index={9} />
+                      <Table.Summary.Cell index={4} />
                     </Table.Summary.Row>
                   </Table.Summary>
                 )}

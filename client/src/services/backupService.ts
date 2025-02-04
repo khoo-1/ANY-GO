@@ -1,4 +1,4 @@
-import http from '../utils/http';
+import { http } from '../utils/http';
 import { Backup, ListResponse } from '../types/api';
 
 export interface BackupQuery {

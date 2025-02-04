@@ -241,5 +241,343 @@
   - 性能监控
   - 错误告警
   - 资源使用监控
+## 代码规范
+
+### TypeScript 规范
+
+1. 类型定义
+   - 使用接口（interface）定义对象类型
+   - 使用类型别名（type）定义联合类型或交叉类型
+   - 所有类型名使用大驼峰命名法
+   - 接口名不要使用 I 前缀
+   ```typescript
+   // 正确
+   interface User {
+     id: string;
+     name: string;
+   }
+   
+   // 错误
+   interface IUser {
+     id: string;
+     name: string;
+   }
+   ```
+
+2. 变量声明
+   - 优先使用 const，其次是 let
+   - 禁止使用 var
+   - 变量名使用小驼峰命名法
+   ```typescript
+   // 正确
+   const userName = 'John';
+   let userAge = 25;
+   
+   // 错误
+   var user_name = 'John';
+   ```
+
+3. 函数定义
+   - 函数名使用小驼峰命名法
+   - 必须明确参数类型和返回值类型
+   - 异步函数必须返回 Promise
+   ```typescript
+   // 正确
+   async function getUserById(id: string): Promise<User> {
+     return await userService.findById(id);
+   }
+   
+   // 错误
+   async function get_user_by_id(id) {
+     return userService.findById(id);
+   }
+   ```
+
+### React 组件规范
+
+1. 组件定义
+   - 使用函数组件和 Hooks
+   - 组件名使用大驼峰命名法
+   - Props 类型必须明确定义
+   ```typescript
+   interface UserListProps {
+     users: User[];
+     onUserSelect: (user: User) => void;
+   }
+   
+   const UserList: React.FC<UserListProps> = ({ users, onUserSelect }) => {
+     // 组件实现
+   };
+   ```
+
+2. Hooks 使用
+   - 自定义 Hook 必须以 use 开头
+   - 依赖数组必须完整
+   - 避免过深的 Hook 嵌套
+   ```typescript
+   // 正确
+   const useUserData = (userId: string) => {
+     const [user, setUser] = useState<User | null>(null);
+     
+     useEffect(() => {
+       fetchUser(userId).then(setUser);
+     }, [userId]);
+     
+     return user;
+   };
+   ```
+
+3. 状态管理
+   - 局部状态使用 useState
+   - 复杂状态使用 useReducer
+   - 共享状态使用 Context
+
+### 目录结构规范
+
+```
+client/
+├── src/
+│   ├── components/      # 组件目录
+│   │   ├── common/      # 通用组件
+│   │   ├── layout/      # 布局组件
+│   │   └── pages/       # 页面组件
+│   ├── hooks/           # 自定义 Hooks
+│   ├── services/        # API 服务
+│   ├── types/           # 类型定义
+│   ├── utils/           # 工具函数
+│   └── App.tsx          # 根组件
+│
+server/
+├── src/
+│   ├── controllers/     # 控制器
+│   ├── models/          # 数据模型
+│   ├── routes/          # 路由定义
+│   ├── services/        # 业务逻辑
+│   └── utils/           # 工具函数
+```
+
+## 数据规范
+
+### 商品数据
+
+1. SKU 规则
+   - 格式：`^[A-Z0-9\-_]{6,30}$`
+   - 示例：`PRODUCT-001`, `TEXTILE_SHIRT_L`
+   - 唯一性：系统级别唯一
+   - 不可修改性：创建后不可修改
+
+2. 商品类型
+   ```typescript
+   type ProductType = 'normal' | 'textile' | 'mixed';
+   ```
+   - normal: 普货
+   - textile: 纺织
+   - mixed: 混装
+
+3. 商品状态
+   ```typescript
+   type ProductStatus = 'active' | 'inactive';
+   ```
+   - active: 上架
+   - inactive: 下架
+
+### 装箱单数据
+
+1. 箱号规则
+   - 格式：字母数字组合
+   - 示例：`BOX001`, `A001`
+   - 范围：同一装箱单内唯一
+
+2. 装箱单状态
+   ```typescript
+   type PackingListStatus = 'pending' | 'approved';
+   ```
+   - pending: 待审核
+   - approved: 已审核
+
+3. 重量和体积
+   - 重量单位：kg
+   - 体积单位：m³
+   - 精度：重量保留2位小数，体积保留3位小数
+
+## API 规范
+
+### 请求规范
+
+1. URL 规则
+   - 使用小写字母
+   - 使用连字符（-）连接单词
+   - 使用复数形式表示资源集合
+   ```
+   /api/products
+   /api/packing-lists
+   ```
+
+2. HTTP 方法
+   - GET：查询
+   - POST：创建
+   - PUT：完整更新
+   - PATCH：部分更新
+   - DELETE：删除
+
+3. 查询参数
+   ```typescript
+   interface QueryParams {
+     page?: number;
+     pageSize?: number;
+     keyword?: string;
+     [key: string]: any;
+   }
+   ```
+
+### 响应规范
+
+1. 成功响应
+   ```typescript
+   interface ApiResponse<T> {
+     code: 0;
+     data: T;
+     message: string;
+   }
+   ```
+
+2. 错误响应
+   ```typescript
+   interface ApiError {
+     code: number;
+     message: string;
+     details?: any;
+   }
+   ```
+
+3. 状态码使用
+   - 200：成功
+   - 201：创建成功
+   - 400：请求错误
+   - 401：未授权
+   - 403：禁止访问
+   - 404：资源不存在
+   - 500：服务器错误
+
+## 文档规范
+
+### 代码注释
+
+1. 文件头注释
+   ```typescript
+   /**
+    * @file 文件描述
+    * @author 作者
+    * @date 创建日期
+    */
+   ```
+
+2. 函数注释
+   ```typescript
+   /**
+    * 函数描述
+    * @param {string} param1 参数1描述
+    * @param {number} param2 参数2描述
+    * @returns {Promise<Result>} 返回值描述
+    * @throws {Error} 可能抛出的错误
+    */
+   ```
+
+3. 接口注释
+   ```typescript
+   /**
+    * 用户信息接口
+    * @interface User
+    */
+   interface User {
+     /** 用户ID */
+     id: string;
+     /** 用户名 */
+     name: string;
+   }
+   ```
+
+### Git 规范
+
+1. 分支命名
+   - 主分支：master/main
+   - 开发分支：develop
+   - 功能分支：feature/xxx
+   - 修复分支：hotfix/xxx
+   - 发布分支：release/xxx
+
+2. 提交信息
+   ```
+   <type>(<scope>): <subject>
+
+   <body>
+
+   <footer>
+   ```
+   - type: feat, fix, docs, style, refactor, test, chore
+   - scope: 影响范围
+   - subject: 简短描述
+   - body: 详细描述
+   - footer: 关闭 issue 等
+
+3. 版本号规范
+   - 遵循语义化版本 2.0.0
+   - 格式：主版本号.次版本号.修订号
+   - 示例：1.0.0, 1.0.1, 1.1.0
+
+## 测试规范
+
+1. 单元测试
+   - 使用 Jest 框架
+   - 测试文件命名：*.test.ts
+   - 覆盖率要求：>= 80%
+
+2. 组件测试
+   - 使用 React Testing Library
+   - 测试用户交互
+   - 测试渲染结果
+
+3. 端到端测试
+   - 使用 Cypress
+   - 测试关键业务流程
+   - 测试用户场景
+
+## 安全规范
+
+1. 身份认证
+   - 使用 JWT
+   - Token 过期时间：24小时
+   - 刷新 Token 机制
+
+2. 数据验证
+   - 使用 Joi 进行请求验证
+   - 使用 TypeScript 类型检查
+   - SQL 注入防护
+
+3. 敏感信息
+   - 密码必须加密存储
+   - API Key 必须加密
+   - 日志脱敏处理
+
+## 性能规范
+
+1. 前端优化
+   - 代码分割
+   - 懒加载
+  - 缓存策略
+   - 图片优化
+
+2. 后端优化
+  - 数据库索引
+   - 缓存使用
+   - 并发控制
+   - 连接池管理
+
+3. 监控指标
+   - 响应时间
+   - 错误率
+   - 资源使用率
+   - 用户体验指标
+
 
 

@@ -1,4 +1,4 @@
-import request from '../utils/request';
+import { http } from '../utils/http';
 import { PackingList, PackingListQuery, ListResponse, ApiResponse } from '../types/api';
 import dayjs from 'dayjs';
 
@@ -9,10 +9,10 @@ const isValidObjectId = (id: string): boolean => {
 };
 
 export const packingListService = {
-  list: async (params: PackingListQuery): Promise<ListResponse<PackingList>> => {
+  list: async (params: PackingListQuery = {}): Promise<ListResponse<PackingList>> => {
     console.log('调用list服务，参数:', params);
     try {
-      const response = await request.get<ListResponse<PackingList>>('/api/packing-lists', { params });
+      const response = await http.get('/api/packing-lists', { params });
       console.log('list服务原始响应:', response);
       
       // 检查响应数据
@@ -26,13 +26,14 @@ export const packingListService = {
 
       // 确保返回的数据符合 ListResponse 接口
       return {
+        code: 0,
         items: Array.isArray(responseData.items) ? responseData.items : [],
         pagination: {
           total: responseData.pagination?.total || 0,
           current: params.page || 1,
           pageSize: params.pageSize || 10
         },
-        success: true
+        message: '获取成功'
       };
     } catch (error) {
       console.error('list服务出错:', error);
@@ -42,9 +43,9 @@ export const packingListService = {
   
   getById: async (id: string): Promise<PackingList> => {
     console.log('调用getById服务，ID:', id);
-    const response = await request.get<PackingList>(`/api/packing-lists/${id}`);
+    const response = await http.get<ApiResponse<PackingList>>(`/api/packing-lists/${id}`);
     console.log('getById服务响应:', response);
-    return response.data;
+    return response.data.data;
   },
   
   import: async (file: File): Promise<ApiResponse<any>> => {
@@ -52,7 +53,7 @@ export const packingListService = {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await request.post<ApiResponse<any>>('/api/packing-lists/import', formData, {
+      const response = await http.post<any>('/api/packing-lists/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
@@ -72,17 +73,15 @@ export const packingListService = {
       // 处理导入响应
       if (Array.isArray(responseData)) {
         return {
-          success: true,
-          message: `成功导入 ${responseData.length} 个装箱单`,
-          data: responseData
+          code: 0,
+          data: responseData,
+          message: `成功导入 ${responseData.length} 个装箱单`
         };
-      } else if (typeof responseData === 'object' && responseData.message) {
-        return responseData;
       } else {
         return {
-          success: true,
-          message: '导入成功',
-          data: responseData
+          code: 0,
+          data: responseData,
+          message: '导入成功'
         };
       }
     } catch (error) {
@@ -91,20 +90,19 @@ export const packingListService = {
     }
   },
   
-  delete: async (id: string): Promise<ApiResponse<void>> => {
+  delete: async (id: string): Promise<void> => {
     console.log('调用delete服务，ID:', id);
     if (!id || typeof id !== 'string' || !isValidObjectId(id)) {
       console.error('无效的ID格式:', id);
       throw new Error('无效的ID格式，ID必须是24位的十六进制字符串');
     }
-    const response = await request.delete<ApiResponse<void>>(`/api/packing-lists/${id}`);
+    const response = await http.delete<ApiResponse<void>>(`/api/packing-lists/${id}`);
     console.log('delete服务响应:', response);
-    return response.data;
   },
   
   deleteAll: async (): Promise<ApiResponse<void>> => {
     console.log('调用deleteAll服务');
-    const response = await request.delete<ApiResponse<void>>('/api/packing-lists');
+    const response = await http.delete<ApiResponse<void>>('/api/packing-lists');
     console.log('deleteAll服务响应:', response);
     return response.data;
   },
@@ -112,7 +110,7 @@ export const packingListService = {
   export: async (id: string): Promise<Blob> => {
     console.log('调用export服务，ID:', id);
     try {
-      const response = await request.get<Blob>(`/api/packing-lists/${id}/download`, {
+      const response = await http.get<Blob>(`/api/packing-lists/${id}/download`, {
         responseType: 'blob'
       });
       const blob = response.data;
@@ -134,7 +132,7 @@ export const packingListService = {
 
   batchExport: async (ids: string[]): Promise<Blob> => {
     try {
-      const response = await request.post<Blob>('/api/packing-lists/batch-download', { ids }, { responseType: 'blob' });
+      const response = await http.post<Blob>('/api/packing-lists/batch-download', { ids }, { responseType: 'blob' });
       const blob = response.data;
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');

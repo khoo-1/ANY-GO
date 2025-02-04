@@ -70,9 +70,9 @@ const Products: React.FC = () => {
     loadProducts();
   }, [query]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (_id: string) => {
     try {
-      await productService.delete(id);
+      await productService.delete(_id);
       message.success('删除成功');
       loadProducts();
     } catch (error) {
@@ -162,7 +162,7 @@ const Products: React.FC = () => {
   // 批量删除
   const handleBatchDelete = async () => {
     try {
-      await Promise.all(selectedRowKeys.map(id => productService.delete(id)));
+      await Promise.all(selectedRowKeys.map(_id => productService.delete(_id)));
       message.success('批量删除成功');
       setSelectedRowKeys([]);
       loadProducts();
@@ -248,16 +248,7 @@ const Products: React.FC = () => {
           <Button 
             type="link" 
             size="small"
-            onClick={() => {
-              setCurrentProduct(record);
-              setDetailVisible(true);
-            }}
-          >
-            查看
-          </Button>
-          <Button 
-            type="link"
-            size="small"
+            icon={<EditOutlined />}
             onClick={() => {
               setCurrentProduct(record);
               setVisible(true);
@@ -267,14 +258,15 @@ const Products: React.FC = () => {
           </Button>
           <Popconfirm
             title="确定要删除这个商品吗？"
-            onConfirm={() => handleDelete(record.id)}
+            onConfirm={() => handleDelete(record._id)}
             okText="确定"
             cancelText="取消"
           >
             <Button 
-              type="link"
+              type="link" 
+              danger 
               size="small"
-              danger
+              icon={<DeleteOutlined />}
             >
               删除
             </Button>
@@ -399,7 +391,7 @@ const Products: React.FC = () => {
           loading={loading}
           columns={columns}
           dataSource={products}
-          rowKey="id"
+          rowKey="_id"
           scroll={{ x: 1200 }}
           pagination={{
             total,

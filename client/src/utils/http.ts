@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { message } from 'antd';
 
 // 创建 axios 实例
@@ -12,10 +12,10 @@ const http: AxiosInstance = axios.create({
 
 // 请求拦截器
 http.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config: InternalAxiosRequestConfig) => {
     // 从 localStorage 获取 token
     const token = localStorage.getItem('token');
-    if (token && config.headers) {
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
