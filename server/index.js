@@ -3,6 +3,9 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
 require('dotenv').config();
+const apiRoutes = require('./routes/api');
+const backupService = require('./services/backupService');
+const scheduleService = require('./services/scheduleService');
 
 const app = express();
 
@@ -67,10 +70,45 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/packing-lists', packingListRoutes);
 
+app.use('/api', apiRoutes);
+
 const HOST = process.env.HOST || '0.0.0.0';
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, HOST, () => {
-  console.log(`服务器运行在 http://${HOST}:${PORT}`);
-  console.log(`局域网访问地址: http://192.168.110.13:${PORT}`);
+// 连接数据库并启动服务器
+mongoose.connect(MONGODB_URI)
+  .then(async () => {
+    console.log('数据库连接成功');
+    
+    // 初始化备份目录
+    await backupService.init();
+    console.log('备份目录初始化完成');
+
+    // 初始化定时任务
+    await scheduleService.init();
+    console.log('定时任务初始化完成');
+
+    // 启动服务器
+    app.listen(PORT, HOST, () => {
+      console.log(`服务器运行在 http://${HOST}:${PORT}`);
+      console.log(`局域网访问地址: http://192.168.110.13:${PORT}`);
+    });
+  })
+  .catch(error => {
+    console.error('数据库连接失败:', error);
+    process.exit(1);
+  });
+
+// 优雅关闭
+process.on('SIGTERM', async () => {
+  console.log('收到 SIGTERM 信号，准备关闭服务...');
+  
+  // 取消所有定时任务
+  scheduleService.cancelAllJobs();
+  
+  // 关闭数据库连接
+  await mongoose.connection.close();
+  console.log('数据库连接已关闭');
+  
+  process.exit(0);
 }); 
