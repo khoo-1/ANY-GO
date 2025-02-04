@@ -53,6 +53,10 @@ const authService = {
     return userStr ? JSON.parse(userStr) : null;
   },
 
+  isAuthenticated: (): boolean => {
+    return !!localStorage.getItem('token');
+  },
+
   hasPermission: (permission: string): boolean => {
     const user = authService.getUser();
     if (!user) return false;

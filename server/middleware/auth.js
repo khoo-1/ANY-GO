@@ -58,30 +58,50 @@ exports.logOperation = (module, action) => {
     res.send = async function (data) {
       res.send = originalSend;
       try {
+        let user = req.user;
+        console.log('操作日志 - 当前操作:', { module, action });
+        
+        // 对于登录操作，从响应数据中获取用户信息
+        if (action === 'login' && data) {
+          console.log('操作日志 - 登录响应数据:', data);
+          const responseData = JSON.parse(data);
+          console.log('操作日志 - 解析后的响应数据:', responseData);
+          if (responseData.data && responseData.data.user) {
+            user = responseData.data.user;
+            console.log('操作日志 - 从响应中获取到用户:', user);
+          }
+        }
+
+        if (!user) {
+          console.warn('未找到用户信息，跳过日志记录');
+          return originalSend.call(this, data);
+        }
+
         const logEntry = {
-          userId: req.user._id,
-          username: req.user.username,
+          userId: user._id || user.id,
+          username: user.username,
           module,
           action,
-          description: `${req.user.username} 执行了 ${module} 模块的 ${action} 操作`,
+          description: `${user.username} 执行了 ${module} 模块的 ${action} 操作`,
           details: {
             method: req.method,
             url: req.originalUrl,
             body: req.body,
-            params: req.params,
-            query: req.query
+            ip: req.ip,
+            userAgent: req.get('user-agent')
           },
-          ip: req.ip,
-          userAgent: req.get('user-agent'),
-          status: res.statusCode >= 400 ? 'failure' : 'success'
+          status: res.statusCode,
+          response: data
         };
 
-        await OperationLog.create(logEntry);
+        console.log('操作日志 - 准备保存日志:', logEntry);
+        const operationLog = new OperationLog(logEntry);
+        await operationLog.save();
+        console.log('操作日志 - 日志保存成功');
       } catch (error) {
         console.error('记录操作日志失败:', error);
       }
-      
-      return res.send(data);
+      return originalSend.call(this, data);
     };
     next();
   };

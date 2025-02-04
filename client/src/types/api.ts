@@ -7,7 +7,7 @@ export interface Product {
   sku: string;
   name: string;
   chineseName: string;
-  type: 'normal' | 'textile' | 'mixed';
+  type: '普货' | '纺织' | '混装';
   category?: string;
   cost: number;
   freightCost: number;
@@ -16,21 +16,22 @@ export interface Product {
   status: 'active' | 'inactive';
   description?: string;
   images?: string[];
+  isAutoCreated: boolean;
+  needsCompletion: boolean;
   createdAt: Date;
   updatedAt?: Date;
 }
 
-export interface ProductQuery {
-  page?: number;
-  pageSize?: number;
+export interface ProductQuery extends QueryParams {
   keyword?: string;
-  type?: string;
-  status?: string;
-  minCost?: number;
-  maxCost?: number;
+  type?: '普货' | '纺织' | '混装';
+  category?: string;
+  status?: 'active' | 'inactive';
+  showAutoCreated?: boolean;
+  needsCompletion?: boolean;
 }
 
-export interface ProductCreate extends Omit<Product, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface ProductCreate extends Omit<Product, '_id' | 'id' | 'createdAt' | 'updatedAt'> {}
 export interface ProductUpdate extends Partial<ProductCreate> {}
 
 // 装箱单相关类型

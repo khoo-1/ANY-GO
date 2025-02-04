@@ -194,12 +194,20 @@ const Products: React.FC = () => {
       width: 150,
       fixed: 'left' as const,
       render: (sku: string, record: Product) => (
-        <a onClick={() => {
-          setCurrentProduct(record);
-          setDetailVisible(true);
-        }}>
-          {sku}
-        </a>
+        <Space>
+          <a onClick={() => {
+            setCurrentProduct(record);
+            setDetailVisible(true);
+          }}>
+            {sku}
+          </a>
+          {record.isAutoCreated && (
+            <Tag color="orange">自动创建</Tag>
+          )}
+          {record.needsCompletion && (
+            <Tag color="red">待完善</Tag>
+          )}
+        </Space>
       )
     },
     { 
@@ -237,6 +245,19 @@ const Products: React.FC = () => {
       width: 100,
       align: 'right' as const,
       render: (freightCost: number) => `¥${freightCost.toFixed(2)}`
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status: string, record: Product) => (
+        <Space>
+          <Tag color={status === 'active' ? 'success' : 'default'}>
+            {status === 'active' ? '上架' : '下架'}
+          </Tag>
+        </Space>
+      )
     },
     {
       title: '操作',
@@ -366,11 +387,25 @@ const Products: React.FC = () => {
                     <Select.Option value="混装">混装</Select.Option>
                   </Select>
                 </Form.Item>
-                <Form.Item name="minCost" label="最小成本价">
-                  <InputNumber min={0} precision={2} />
+                <Form.Item name="showAutoCreated" label="自动创建">
+                  <Select
+                    style={{ width: 120 }}
+                    allowClear
+                    placeholder="筛选来源"
+                  >
+                    <Select.Option value="true">显示</Select.Option>
+                    <Select.Option value="false">隐藏</Select.Option>
+                  </Select>
                 </Form.Item>
-                <Form.Item name="maxCost" label="最大成本价">
-                  <InputNumber min={0} precision={2} />
+                <Form.Item name="needsCompletion" label="信息完整性">
+                  <Select
+                    style={{ width: 120 }}
+                    allowClear
+                    placeholder="筛选状态"
+                  >
+                    <Select.Option value="true">待完善</Select.Option>
+                    <Select.Option value="false">已完善</Select.Option>
+                  </Select>
                 </Form.Item>
                 <Form.Item>
                   <Space>

@@ -21,26 +21,54 @@ const upload = multer({ storage: storage });
 // 获取商品列表
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, pageSize = 10, keyword, category, status } = req.query;
+    const { 
+      page = 1, 
+      pageSize = 10, 
+      keyword, 
+      type,
+      category, 
+      status,
+      showAutoCreated = 'true',
+      needsCompletion
+    } = req.query;
+    
     let query = {};
 
+    // 关键字搜索
     if (keyword) {
       query.$or = [
         { sku: new RegExp(keyword, 'i') },
-        { name: new RegExp(keyword, 'i') },
-        { supplier: new RegExp(keyword, 'i') }
+        { chineseName: new RegExp(keyword, 'i') }
       ];
     }
 
+    // 类型筛选
+    if (type) {
+      query.type = type;
+    }
+
+    // 分类筛选
     if (category) {
       query.category = category;
     }
 
-    if (status === 'low') {
-      query.$expr = { $lte: ['$stock', '$alertThreshold'] };
-    } else if (status === 'out') {
-      query.stock = 0;
+    // 状态筛选
+    if (status === 'active' || status === 'inactive') {
+      query.status = status;
     }
+
+    // 是否显示自动创建的商品
+    if (showAutoCreated === 'false') {
+      query.isAutoCreated = false;
+    }
+
+    // 是否只显示待完善的商品
+    if (needsCompletion === 'true') {
+      query.needsCompletion = true;
+    }
+
+    console.log('商品查询条件:', query);
+    console.log('分页参数:', { page, pageSize });
 
     const skip = (parseInt(page) - 1) * parseInt(pageSize);
     const total = await Product.countDocuments(query);
@@ -49,18 +77,24 @@ router.get('/', async (req, res) => {
       .skip(skip)
       .limit(parseInt(pageSize));
 
+    console.log(`查询到 ${products.length} 个商品，总数：${total}`);
+
     res.json({
+      code: 0,
       data: {
         items: products,
-        pagination: {
-          total,
-          page: parseInt(page),
-          pageSize: parseInt(pageSize)
-        }
-      }
+        total,
+        page: parseInt(page),
+        pageSize: parseInt(pageSize)
+      },
+      message: '查询成功'
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('查询商品列表出错:', error);
+    res.status(500).json({ 
+      code: 500,
+      message: error.message 
+    });
   }
 });
 

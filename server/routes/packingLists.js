@@ -7,6 +7,7 @@ const path = require('path');
 const PackingList = require('../models/PackingList');
 const Product = require('../models/Product');
 const mongoose = require('mongoose');
+const { verifyToken: auth } = require('../middleware/auth');
 
 // 确保上传目录存在
 const uploadDir = path.join(__dirname, '../uploads/packingLists');
@@ -84,7 +85,7 @@ router.get('/', async (req, res) => {
 });
 
 // 导入装箱单
-router.post('/import', upload.single('file'), async (req, res) => {
+router.post('/import', auth, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ 
@@ -155,16 +156,55 @@ router.post('/import', upload.single('file'), async (req, res) => {
         currentCol = String.fromCharCode(currentCol.charCodeAt(0) + 3);
       }
 
+      // 收集所有SKU
+      const skus = new Set();
+      let row = 8;
+      while (worksheet['B' + row]) {
+        const sku = worksheet['B' + row]?.v;
+        if (sku) {
+          skus.add(sku);
+        }
+        row++;
+      }
+
+      // 检查并创建不存在的SKU
+      console.log('检查SKU是否存在:', Array.from(skus));
+      const existingProducts = await Product.find({ sku: { $in: Array.from(skus) } });
+      const existingSkus = new Set(existingProducts.map(p => p.sku));
+      
+      // 创建不存在的SKU
+      const createPromises = Array.from(skus)
+        .filter(sku => !existingSkus.has(sku))
+        .map(async (sku) => {
+          console.log('创建新SKU:', sku);
+          const newProduct = new Product({
+            sku,
+            name: `待补充(${sku})`,
+            chineseName: `待补充(${sku})`,
+            type,
+            cost: 0,
+            freightCost: 0,
+            price: 0,
+            stock: 0,
+            isAutoCreated: true,
+            needsCompletion: true
+          });
+          return newProduct.save();
+        });
+
+      await Promise.all(createPromises);
+      console.log('完成SKU创建');
+
       // 处理商品数据（从第8行开始）
       const items = [];
-      let row = 8;
+      row = 8;
       while (worksheet['B' + row]) {
         const sku = worksheet['B' + row]?.v;
         const chineseName = worksheet['C' + row]?.v;
         
         if (sku) {
           const boxQuantities = [];
-          let totalQuantity = 0; // 添加总数量计算
+          let totalQuantity = 0;
           
           // 遍历每个箱子的数量
           for (let i = 0; i < boxSpecs.length; i++) {
@@ -183,7 +223,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
                   edgeVolume: boxSpecs[i].edgeVolume
                 }
               });
-              totalQuantity += quantity; // 累加总数量
+              totalQuantity += quantity;
             }
           }
 
@@ -191,7 +231,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
             items.push({
               sku,
               chineseName: chineseName || `待补充(${sku})`,
-              quantity: totalQuantity, // 添加总数量字段
+              quantity: totalQuantity,
               boxQuantities
             });
           }
@@ -220,26 +260,19 @@ router.post('/import', upload.single('file'), async (req, res) => {
 
     // 删除临时文件
     fs.unlinkSync(req.file.path);
-    console.log('临时文件已删除');
 
-    const response = {
-      message: `成功导入 ${results.length} 个装箱单`,
+    res.json({
+      message: '导入成功',
       data: results
-    };
-    console.log('返回响应:', response);
-    res.json(response);
+    });
   } catch (error) {
     console.error('导入装箱单时出错:', error);
-    // 删除临时文件
-    if (req.file && req.file.path) {
+    if (req.file) {
       fs.unlinkSync(req.file.path);
-      console.log('出错后临时文件已删除');
     }
-    
-    res.status(500).json({ 
-      message: '导入失败: ' + error.message,
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    res.status(400).json({ 
+      message: '导入失败', 
+      error: error.message 
     });
   }
 });
@@ -276,12 +309,19 @@ router.patch('/:id/status', async (req, res) => {
 });
 
 // 导出装箱单
-router.get('/:id/download', async (req, res) => {
+router.get('/:id/export', async (req, res) => {
   try {
-    const packingList = await PackingList.findById(req.params.id);
+    const packingList = await PackingList.findById(req.params.id)
+      .populate('items.product')
+      .populate('customer');
+    
     if (!packingList) {
-      return res.status(404).json({ message: '装箱单不存在' });
+      return res.status(404).json({ message: '装箱单未找到' });
     }
+
+    // 设置响应头
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=装箱单_${packingList.storeName}_${Date.now()}.xlsx`);
 
     // 创建工作簿
     const workbook = xlsx.utils.book_new();
@@ -320,10 +360,6 @@ router.get('/:id/download', async (req, res) => {
 
     // 生成 Excel 文件
     const excelBuffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-    // 设置响应头
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=装箱单_${packingList.storeName}_${Date.now()}.xlsx`);
 
     // 发送文件
     res.send(excelBuffer);
