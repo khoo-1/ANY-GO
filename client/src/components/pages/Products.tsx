@@ -56,9 +56,9 @@ const Products: React.FC = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const res = await productService.list(query);
+      const res = await productService.getList(query);
       setProducts(res.data.items);
-      setTotal(res.data.pagination.total);
+      setTotal(res.data.total);
     } catch (error) {
       handleError(error as AxiosError<ApiResponse> | Error);
     } finally {

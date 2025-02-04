@@ -4,53 +4,49 @@ import { PaginationParams, QueryParams } from './index';
 export interface Product {
   id: string;
   sku: string;
-  name: string;
-  chineseName?: string;
-  description?: string;
-  category?: string;
+  chineseName: string;
   type: '普货' | '纺织' | '混装';
-  price: number;
-  cost?: number;
+  category?: string;
+  cost: number;
+  freightCost: number;
   stock: number;
-  images?: string[];
+  alertThreshold: number;
   status: 'active' | 'inactive';
-  isAutoCreated?: boolean;
-  needsCompletion?: boolean;
+  description?: string;
+  images?: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ProductQuery extends QueryParams {
+export interface ProductQuery {
+  page?: number;
+  pageSize?: number;
   keyword?: string;
-  category?: string;
-  type?: Product['type'];
-  status?: Product['status'];
-  minPrice?: number;
-  maxPrice?: number;
+  type?: string;
+  minCost?: number;
+  maxCost?: number;
 }
 
 export interface ProductCreate extends Omit<Product, 'id' | 'createdAt' | 'updatedAt'> {}
 export interface ProductUpdate extends Partial<ProductCreate> {}
 
 // 装箱单相关类型
-export interface BoxSpecs {
-  length: number;
-  width: number;
-  height: number;
-  weight: number;
-  volume: number;
-  edgeVolume: number;
-}
-
 export interface BoxQuantity {
   boxNo: string;
   quantity: number;
-  specs: BoxSpecs;
+  specs?: {
+    length?: number;
+    width?: number;
+    height?: number;
+    weight?: number;
+  };
 }
 
-export interface PackingListItem {
+export interface PackingItem {
+  productId: string;
   sku: string;
-  chineseName?: string;
+  chineseName: string;
+  quantities: number[];
   boxQuantities: BoxQuantity[];
 }
 
@@ -58,11 +54,11 @@ export interface PackingList {
   _id: string;
   storeName: string;
   type: string;
+  items: PackingItem[];
   totalBoxes: number;
+  totalPieces: number;
   totalWeight: number;
   totalVolume: number;
-  totalPieces: number;
-  items: PackingListItem[];
   remarks?: string;
   createdAt: string;
   updatedAt: string;
@@ -71,8 +67,11 @@ export interface PackingList {
 export interface PackingListQuery {
   page?: number;
   pageSize?: number;
-  storeName?: string;
+  keyword?: string;
   type?: string;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 // 订单相关类型
@@ -106,11 +105,12 @@ export interface ListResponse<T> {
     current: number;
     pageSize: number;
   };
+  success: boolean;
 }
 
 // API 响应类型
-export interface ApiResponse<T = any> {
-  message?: string;
-  error?: string;
-  data?: T;
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
 } 

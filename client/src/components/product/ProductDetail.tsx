@@ -53,20 +53,28 @@ const ProductDetail: React.FC<ProductDetailProps> = ({
 
         <Divider orientation="left">价格信息</Divider>
         <Descriptions column={2}>
-          <Descriptions.Item label="成本价">¥{product.cost.toFixed(2)}</Descriptions.Item>
-          <Descriptions.Item label="头程运费">¥{product.freightCost.toFixed(2)}</Descriptions.Item>
+          <Descriptions.Item label="成本价">
+            ¥{(product.cost || 0).toFixed(2)}
+          </Descriptions.Item>
+          <Descriptions.Item label="头程运费">
+            ¥{(product.freightCost || 0).toFixed(2)}
+          </Descriptions.Item>
           <Descriptions.Item label="总成本">
-            ¥{(product.cost + product.freightCost).toFixed(2)}
+            ¥{((product.cost || 0) + (product.freightCost || 0)).toFixed(2)}
           </Descriptions.Item>
         </Descriptions>
 
         <Divider orientation="left">库存信息</Divider>
         <Descriptions column={2}>
-          <Descriptions.Item label="当前库存">{product.stock}</Descriptions.Item>
-          <Descriptions.Item label="库存预警阈值">{product.alertThreshold}</Descriptions.Item>
+          <Descriptions.Item label="当前库存">
+            {product.stock || 0}
+          </Descriptions.Item>
+          <Descriptions.Item label="库存预警阈值">
+            {product.alertThreshold || 10}
+          </Descriptions.Item>
           <Descriptions.Item label="库存状态">
-            <Tag color={product.stock > product.alertThreshold ? 'success' : 'warning'}>
-              {product.stock > product.alertThreshold ? '库存充足' : '库存不足'}
+            <Tag color={(product.stock || 0) > (product.alertThreshold || 10) ? 'success' : 'warning'}>
+              {(product.stock || 0) > (product.alertThreshold || 10) ? '库存充足' : '库存不足'}
             </Tag>
           </Descriptions.Item>
         </Descriptions>

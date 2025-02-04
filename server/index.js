@@ -6,11 +6,15 @@ require('dotenv').config();
 
 const app = express();
 
-// 中间件
-app.use(cors());
-app.use(express.json());
+// CORS 配置
+app.use(cors({
+  origin: '*',  // 允许所有来源访问
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// 静态文件服务
+// 中间件
+app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
 // 数据库连接配置
@@ -63,7 +67,10 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/packing-lists', packingListRoutes);
 
+const HOST = process.env.HOST || '0.0.0.0';
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`服务器运行在端口 ${PORT}`);
+
+app.listen(PORT, HOST, () => {
+  console.log(`服务器运行在 http://${HOST}:${PORT}`);
+  console.log(`局域网访问地址: http://192.168.110.13:${PORT}`);
 }); 

@@ -31,7 +31,8 @@ export const packingListService = {
           total: responseData.pagination?.total || 0,
           current: params.page || 1,
           pageSize: params.pageSize || 10
-        }
+        },
+        success: true
       };
     } catch (error) {
       console.error('list服务出错:', error);
@@ -46,12 +47,12 @@ export const packingListService = {
     return response.data;
   },
   
-  import: async (file: File): Promise<ApiResponse> => {
+  import: async (file: File): Promise<ApiResponse<any>> => {
     console.log('调用import服务，文件:', file.name);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await request.post<ApiResponse>('/api/packing-lists/import', formData, {
+      const response = await request.post<ApiResponse<any>>('/api/packing-lists/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
@@ -71,6 +72,7 @@ export const packingListService = {
       // 处理导入响应
       if (Array.isArray(responseData)) {
         return {
+          success: true,
           message: `成功导入 ${responseData.length} 个装箱单`,
           data: responseData
         };
@@ -78,6 +80,7 @@ export const packingListService = {
         return responseData;
       } else {
         return {
+          success: true,
           message: '导入成功',
           data: responseData
         };
@@ -88,20 +91,20 @@ export const packingListService = {
     }
   },
   
-  delete: async (id: string): Promise<ApiResponse> => {
+  delete: async (id: string): Promise<ApiResponse<void>> => {
     console.log('调用delete服务，ID:', id);
     if (!id || typeof id !== 'string' || !isValidObjectId(id)) {
       console.error('无效的ID格式:', id);
       throw new Error('无效的ID格式，ID必须是24位的十六进制字符串');
     }
-    const response = await request.delete<ApiResponse>(`/api/packing-lists/${id}`);
+    const response = await request.delete<ApiResponse<void>>(`/api/packing-lists/${id}`);
     console.log('delete服务响应:', response);
     return response.data;
   },
   
-  deleteAll: async (): Promise<ApiResponse> => {
+  deleteAll: async (): Promise<ApiResponse<void>> => {
     console.log('调用deleteAll服务');
-    const response = await request.delete<ApiResponse>('/api/packing-lists');
+    const response = await request.delete<ApiResponse<void>>('/api/packing-lists');
     console.log('deleteAll服务响应:', response);
     return response.data;
   },
