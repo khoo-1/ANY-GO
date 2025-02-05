@@ -100,4 +100,39 @@ class UpdateStockRequest(BaseModel):
     """更新库存请求"""
     quantity: int
     type: str = Field(..., pattern="^(入库|出库|调整)$")
-    reason: Optional[str] = None 
+    reason: Optional[str] = None
+
+class ProductExportRequest(BaseModel):
+    """产品导出请求"""
+    keyword: Optional[str] = None
+    type: Optional[str] = Field(None, pattern="^(普货|纺织|混装)$")
+    category: Optional[str] = None
+    min_price: Optional[float] = Field(None, ge=0)
+    max_price: Optional[float] = Field(None, ge=0)
+    in_stock: Optional[bool] = None
+    fields: Optional[List[str]] = None
+
+    @validator('fields')
+    def validate_fields(cls, v):
+        if v:
+            valid_fields = {
+                "sku", "name", "chinese_name", "type", "category",
+                "price", "cost", "stock", "alert_threshold",
+                "supplier", "status"
+            }
+            invalid_fields = set(v) - valid_fields
+            if invalid_fields:
+                raise ValueError(f"无效的字段: {', '.join(invalid_fields)}")
+        return v
+
+class ProductListResponse(BaseModel):
+    """产品列表响应"""
+    items: List[ProductResponse]
+    total: int
+    page: int
+    page_size: int
+
+    @property
+    def total_pages(self) -> int:
+        """计算总页数"""
+        return (self.total + self.page_size - 1) // self.page_size 

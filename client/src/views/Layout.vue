@@ -27,6 +27,10 @@
           <el-icon><TrendCharts /></el-icon>
           <span>利润分析</span>
         </el-menu-item>
+        <el-menu-item index="/user/list" v-if="hasPermission('users:read')">
+          <el-icon><User /></el-icon>
+          <span>用户管理</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
@@ -64,6 +68,16 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { ElMessageBox } from 'element-plus'
+import {
+  HomeFilled,
+  Goods,
+  List,
+  TrendCharts,
+  User,
+  ArrowDown,
+  Fold,
+  Expand
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()

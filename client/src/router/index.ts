@@ -5,7 +5,14 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('../views/Layout.vue'),
+    redirect: '/dashboard',
     children: [
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('../views/Dashboard.vue'),
+        meta: { title: '首页', icon: 'HomeFilled' }
+      },
       {
         path: '',
         name: 'home',
@@ -45,6 +52,20 @@ const routes: RouteRecordRaw[] = [
         path: 'profit',
         name: 'profit',
         component: () => import('../views/profit/ProfitAnalysis.vue')
+      }
+    ]
+  },
+  {
+    path: '/user',
+    component: () => import('../views/Layout.vue'),
+    redirect: '/user/list',
+    meta: { title: '用户管理', icon: 'User', permission: 'users:read' },
+    children: [
+      {
+        path: 'list',
+        name: 'UserList',
+        component: () => import('../views/user/UserList.vue'),
+        meta: { title: '用户列表', permission: 'users:read' }
       }
     ]
   },

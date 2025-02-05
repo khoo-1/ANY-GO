@@ -19,7 +19,17 @@ export interface Product {
 export interface PackingListItem {
   id?: number
   productId: number
-  product: Product
+  product: {
+    id: number
+    sku: string
+    name: string
+    chineseName: string
+    type: string
+    category?: string
+    cost: number
+    price: number
+    stock: number
+  }
   quantity: number
   boxQuantities: BoxQuantity[]
   weight: number
@@ -38,18 +48,17 @@ export interface BoxSpecs {
 
 export interface PackingList {
   id?: number
-  code: string
-  date: string
   storeName: string
   type: string
+  status: 'pending' | 'approved'
   totalBoxes: number
-  totalPieces: number
   totalWeight: number
   totalVolume: number
+  totalPieces: number
+  totalValue: number
+  remarks?: string
   items: PackingListItem[]
   boxSpecs: BoxSpecs[]
-  remarks?: string
-  status: 'pending' | 'approved' | 'rejected'
   createdAt: string
   updatedAt: string
 }
@@ -62,6 +71,31 @@ export interface PackingListQuery {
   status?: string
   startDate?: string
   endDate?: string
+}
+
+export interface PackingListCreateParams {
+  storeName: string
+  type: string
+  remarks?: string
+  items: {
+    productId: number
+    quantity: number
+    boxQuantities: BoxQuantity[]
+  }[]
+  boxSpecs: BoxSpecs[]
+}
+
+export interface PackingListUpdateParams {
+  storeName?: string
+  type?: string
+  status?: string
+  remarks?: string
+  items?: {
+    productId: number
+    quantity: number
+    boxQuantities: BoxQuantity[]
+  }[]
+  boxSpecs?: BoxSpecs[]
 }
 
 export interface ImportResult {
