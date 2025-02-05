@@ -1,41 +1,33 @@
-import { Product, ProductCreate, ProductQuery } from '../types/api';
 import { http } from '../utils/http';
+import { Product, QueryParams, PagedResponse } from '../types/api';
 
-export const productService = {
-  getList: async (query: ProductQuery) => {
-    const response = await http.get('/products', { params: query });
+const productService = {
+  getList: async (params: QueryParams): Promise<PagedResponse<Product>> => {
+    const response = await http.get<PagedResponse<Product>>('/api/products', { params });
     return response.data;
   },
 
-  getById: async (id: string) => {
-    const response = await http.get(`/products/${id}`);
+  getById: async (id: string): Promise<Product> => {
+    const response = await http.get<Product>(`/api/products/${id}`);
     return response.data;
   },
 
-  create: async (data: ProductCreate | FormData) => {
-    const response = await http.post('/products', data, {
-      headers: data instanceof FormData ? {
-        'Content-Type': 'multipart/form-data'
-      } : {
-        'Content-Type': 'application/json'
-      }
-    });
+  create: async (data: Partial<Product>): Promise<Product> => {
+    const response = await http.post<Product>('/api/products', data);
     return response.data;
   },
 
-  update: async (id: string, data: Partial<ProductCreate> | FormData) => {
-    const response = await http.put(`/products/${id}`, data, {
-      headers: data instanceof FormData ? {
-        'Content-Type': 'multipart/form-data'
-      } : {
-        'Content-Type': 'application/json'
-      }
-    });
+  update: async (id: string, data: Partial<Product>): Promise<Product> => {
+    const response = await http.put<Product>(`/api/products/${id}`, data);
     return response.data;
   },
 
-  delete: async (id: string) => {
-    const response = await http.delete(`/products/${id}`);
+  delete: async (id: string): Promise<void> => {
+    await http.delete(`/api/products/${id}`);
+  },
+
+  updateStatus: async (id: string, status: 'active' | 'inactive'): Promise<Product> => {
+    const response = await http.patch<Product>(`/api/products/${id}/status`, { status });
     return response.data;
   },
 
@@ -57,11 +49,13 @@ export const productService = {
     return response.data;
   },
 
-  export: async (query: ProductQuery) => {
+  export: async (query: QueryParams) => {
     const response = await http.get('/products/export', {
       params: query,
       responseType: 'blob'
     });
     return response.data;
   }
-}; 
+};
+
+export default productService; 

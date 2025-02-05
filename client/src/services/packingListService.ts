@@ -1,5 +1,5 @@
 import { http } from '../utils/http';
-import { PackingList, PackingListQuery, ListResponse, ApiResponse } from '../types/api';
+import { PackingList, PackingListQuery, ListResponse, ApiResponse, PagedResponse } from '../types/api';
 import dayjs from 'dayjs';
 
 // MongoDB ObjectId格式验证
@@ -8,35 +8,21 @@ const isValidObjectId = (id: string): boolean => {
   return objectIdPattern.test(id);
 };
 
+const DEFAULT_QUERY: PackingListQuery = {
+  page: 1,
+  pageSize: 10
+};
+
 export const packingListService = {
-  list: async (params: PackingListQuery = {}): Promise<ListResponse<PackingList>> => {
+  list: async (params: Partial<PackingListQuery> = {}): Promise<PagedResponse<PackingList>> => {
     console.log('调用list服务，参数:', params);
     try {
-      const response = await http.get('/api/packing-lists', { params });
-      console.log('list服务原始响应:', response);
-      
-      // 检查响应数据
-      if (!response || !response.data) {
-        console.error('服务器响应异常:', response);
-        throw new Error('服务器响应异常');
-      }
-
-      const responseData = response.data;
-      console.log('处理后的列表数据:', responseData);
-
-      // 确保返回的数据符合 ListResponse 接口
-      return {
-        code: 0,
-        items: Array.isArray(responseData.items) ? responseData.items : [],
-        pagination: {
-          total: responseData.pagination?.total || 0,
-          current: params.page || 1,
-          pageSize: params.pageSize || 10
-        },
-        message: '获取成功'
-      };
+      const response = await http.get('/api/packing-lists', { 
+        params: { ...DEFAULT_QUERY, ...params }
+      });
+      return response.data;
     } catch (error) {
-      console.error('list服务出错:', error);
+      console.error('获取装箱单列表失败:', error);
       throw error;
     }
   },

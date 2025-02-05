@@ -1,4 +1,5 @@
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = require('fs').promises;
 const path = require('path');
 const archiver = require('archiver');
 const mongoose = require('mongoose');
@@ -13,7 +14,7 @@ class BackupService {
 
   async init() {
     try {
-      await fs.mkdir(this.backupDir, { recursive: true });
+      await fsPromises.mkdir(this.backupDir, { recursive: true });
     } catch (error) {
       console.error('创建备份目录失败:', error);
       throw error;
@@ -57,7 +58,7 @@ class BackupService {
 
       await archive.finalize();
 
-      const stats = await fs.stat(filepath);
+      const stats = await fsPromises.stat(filepath);
       backup.size = stats.size;
       backup.status = 'completed';
       backup.completedAt = new Date();
@@ -88,7 +89,7 @@ class BackupService {
       throw new Error('备份不存在');
     }
 
-    const fileContent = await fs.readFile(backup.path);
+    const fileContent = await fsPromises.readFile(backup.path);
     const data = JSON.parse(fileContent);
 
     const session = await mongoose.startSession();
@@ -129,7 +130,7 @@ class BackupService {
     }
 
     try {
-      await fs.unlink(backup.path);
+      await fsPromises.unlink(backup.path);
     } catch (error) {
       console.error('删除备份文件失败:', error);
     }

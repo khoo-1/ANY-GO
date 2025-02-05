@@ -7,8 +7,12 @@ export interface LoginParams {
 }
 
 export interface LoginResponse {
-  token: string;
-  user: User;
+  code: number;
+  data: {
+    token: string;
+    user: User;
+  };
+  message: string;
 }
 
 export interface RegisterParams {
@@ -18,14 +22,8 @@ export interface RegisterParams {
 }
 
 const authService = {
-  login: async (params: LoginParams): Promise<LoginResponse> => {
+  login: async (params: { username: string; password: string }): Promise<LoginResponse> => {
     const response = await http.post<LoginResponse>('/api/auth/login', params);
-    const { token, user } = response.data;
-    
-    // 保存 token 到 localStorage
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    
     return response.data;
   },
 
@@ -39,29 +37,56 @@ const authService = {
     return response.data;
   },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  logout: async () => {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } catch (error) {
+      console.error('清除用户数据失败:', error);
+    }
   },
 
   getToken: (): string | null => {
-    return localStorage.getItem('token');
+    try {
+      return localStorage.getItem('token');
+    } catch (error) {
+      console.error('获取token失败:', error);
+      return null;
+    }
   },
 
   getUser: (): User | null => {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return null;
+      const user = JSON.parse(userStr);
+      return user && typeof user === 'object' ? user : null;
+    } catch (error) {
+      console.error('获取用户数据失败:', error);
+      localStorage.removeItem('user');
+      return null;
+    }
   },
 
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('token');
+    try {
+      return !!localStorage.getItem('token');
+    } catch (error) {
+      console.error('检查认证状态失败:', error);
+      return false;
+    }
   },
 
   hasPermission: (permission: string): boolean => {
-    const user = authService.getUser();
-    if (!user) return false;
-    if (user.role === 'admin') return true;
-    return user.permissions.includes(permission);
+    try {
+      const user = authService.getUser();
+      if (!user) return false;
+      if (user.role === 'admin') return true;
+      return Array.isArray(user.permissions) && user.permissions.includes(permission);
+    } catch (error) {
+      console.error('检查权限失败:', error);
+      return false;
+    }
   }
 };
 

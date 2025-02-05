@@ -20,7 +20,7 @@ import {
   LoadingOutlined 
 } from '@ant-design/icons';
 import { Product } from '../../types/api';
-import { productService } from '../../services/productService';
+import productService from '../../services/productService';
 import { handleError } from '../../utils/errorHandler';
 import { AxiosError } from 'axios';
 import { ApiResponse } from '../../types';
@@ -52,38 +52,27 @@ const ProductForm: React.FC<ProductFormProps> = ({
     return (cost + freightCost).toFixed(2);
   };
 
-  const handleSubmit = async () => {
+  const onFinish = async (values: Partial<Product>) => {
     try {
       setSubmitLoading(true);
-      const values = await form.validateFields();
-      
-      // 处理图片上传
-      const formData = new FormData();
-      fileList.forEach(file => {
-        if (file.originFileObj) {
-          formData.append('images', file.originFileObj);
-        }
-      });
 
-      // 添加其他字段
-      Object.keys(values).forEach(key => {
-        if (key !== 'images') {
-          formData.append(key, values[key]);
-        }
-      });
+      // 处理图片上传
+      if (fileList.length > 0) {
+        values.images = fileList
+          .filter(file => file.status === 'done' && file.url)
+          .map(file => file.url as string);
+      }
 
       if (isEdit && product) {
-        await productService.update(product._id, formData);
+        await productService.update(product._id, values);
         message.success('更新成功');
       } else {
-        await productService.create(formData);
+        await productService.create(values);
         message.success('创建成功');
       }
       onSuccess();
-      form.resetFields();
-      setFileList([]);
     } catch (error) {
-      handleError(error as AxiosError<ApiResponse> | Error);
+      handleError(error as AxiosError);
     } finally {
       setSubmitLoading(false);
     }
@@ -147,7 +136,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     <Modal
       title={isEdit ? '编辑商品' : '添加商品'}
       open={visible}
-      onOk={handleSubmit}
+      onOk={form.submit}
       onCancel={onCancel}
       width={800}
       confirmLoading={submitLoading}
@@ -165,6 +154,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
           stock: 0,
           alertThreshold: 10
         }}
+        onFinish={onFinish}
       >
         <Alert
           message="SKU 规则说明"

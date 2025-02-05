@@ -27,8 +27,8 @@ import {
   FilterOutlined,
   ReloadOutlined
 } from '@ant-design/icons';
-import { Product, ProductQuery } from '../../types/api';
-import { productService } from '../../services/productService';
+import { Product, ProductQuery, QueryParams } from '../../types/api';
+import productService from '../../services/productService';
 import ProductForm from '../product/ProductForm';
 import { handleError } from '../../utils/errorHandler';
 import { AxiosError } from 'axios';
@@ -38,12 +38,16 @@ import ProductDetail from '../product/ProductDetail';
 
 const { Search } = Input;
 const { Title } = Typography;
+const { Option } = Select;
 
 const Products: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
-  const [query, setQuery] = useState<ProductQuery>({ page: 1, pageSize: 10 });
+  const [query, setQuery] = useState<QueryParams>({
+    page: 1,
+    pageSize: 10
+  });
   const [visible, setVisible] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [importModalVisible, setImportModalVisible] = useState(false);
@@ -56,11 +60,11 @@ const Products: React.FC = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const res = await productService.getList(query);
-      setProducts(res.data.items);
-      setTotal(res.data.total);
+      const response = await productService.getList(query);
+      setProducts(response.items);
+      setTotal(response.total);
     } catch (error) {
-      handleError(error as AxiosError<ApiResponse> | Error);
+      message.error('加载商品列表失败');
     } finally {
       setLoading(false);
     }
@@ -80,8 +84,8 @@ const Products: React.FC = () => {
     }
   };
 
-  const handleSearch = (value: string) => {
-    setQuery({ ...query, page: 1, keyword: value });
+  const handleSearch = (values: any) => {
+    setQuery({ ...query, ...values, page: 1 });
   };
 
   const handleTypeFilter = (value: Product['type'] | undefined) => {

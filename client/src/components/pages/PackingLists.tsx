@@ -466,15 +466,12 @@ const PackingLists: React.FC = () => {
   const [detailVisible, setDetailVisible] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const loadPackingLists = useCallback(async () => {
+  const fetchList = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('开始加载装箱单列表，参数:', query);
       const data = await packingListService.list(query);
-      console.log('获取到的响应数据:', data);
       
-      if (data?.items && Array.isArray(data.items)) {
-        // 处理数据，确保所有必要字段都有值
+      if (data && Array.isArray(data.items)) {
         const processedItems = data.items.map(item => ({
           ...item,
           storeName: item.storeName || '未知店铺',
@@ -488,22 +485,21 @@ const PackingLists: React.FC = () => {
         
         console.log('处理后的数据:', processedItems);
         setPackingLists(processedItems);
-        setTotal(data.pagination.total);
+        setTotal(data.total);
       } else {
         console.error('返回数据格式不正确:', data);
         message.error('获取列表失败：返回数据格式不正确');
       }
     } catch (error) {
-      console.error('加载装箱单列表出错:', error);
-      handleError(error as AxiosError<ApiResponse> | Error);
+      handleError(error as AxiosError);
     } finally {
       setLoading(false);
     }
   }, [query]);
 
   useEffect(() => {
-    loadPackingLists();
-  }, [loadPackingLists]);
+    fetchList();
+  }, [fetchList]);
 
   const handleDelete = useCallback(async (id: string) => {
     if (!id) {
@@ -524,7 +520,7 @@ const PackingLists: React.FC = () => {
           const response = await packingListService.delete(id);
           console.log('删除响应:', response);
           message.success('删除成功');
-          loadPackingLists();
+          fetchList();
         } catch (error: any) {
           console.error('删除装箱单出错:', error);
           if (error.message?.includes('无效的ID格式')) {
@@ -541,7 +537,7 @@ const PackingLists: React.FC = () => {
         }
       }
     });
-  }, [loadPackingLists]);
+  }, [fetchList]);
 
   const handleExport = useCallback(async (id: string) => {
     if (!id) {
@@ -574,13 +570,13 @@ const PackingLists: React.FC = () => {
         try {
           await packingListService.deleteAll();
           message.success('删除成功');
-          loadPackingLists();
+          fetchList();
         } catch (error) {
           handleError(error as AxiosError<ApiResponse> | Error);
         }
       }
     });
-  }, [loadPackingLists]);
+  }, [fetchList]);
 
   const columns = useMemo(() => [
     {
@@ -687,7 +683,7 @@ const PackingLists: React.FC = () => {
         message.success(response.message);
         // 重置查询参数并刷新列表
         setQuery({ page: 1, pageSize: 10 });
-        await loadPackingLists();
+        await fetchList();
         setImportVisible(false);
       } else {
         message.error('导入失败：服务器响应格式不正确');

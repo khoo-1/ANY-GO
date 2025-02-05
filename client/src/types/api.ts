@@ -1,25 +1,100 @@
-import { PaginationParams, QueryParams } from './index';
+import { PaginationParams } from './index';
+
+// 基础类型
+export interface BaseModel {
+  _id: string;
+  id?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 分页查询参数
+export interface QueryParams {
+  page: number;
+  pageSize: number;
+  keyword?: string;
+  status?: string;
+  type?: string;
+  [key: string]: any;
+}
+
+// 状态类型
+export type PackingListStatus = 'draft' | 'confirmed' | 'cancelled';
+
+// 分页响应类型
+export interface PagedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// 用户相关类型
+export interface User extends BaseModel {
+  username: string;
+  role: 'admin' | 'manager' | 'operator';
+  permissions: string[];
+  status: 'active' | 'inactive';
+}
 
 // 商品相关类型
-export interface Product {
-  _id: string;
-  id: string;
-  sku: string;
+export interface Product extends BaseModel {
   name: string;
   chineseName: string;
-  type: '普货' | '纺织' | '混装';
+  sku: string;
+  type: string;
   category?: string;
+  description?: string;
   cost: number;
   freightCost: number;
+  price: number;
   stock: number;
-  alertThreshold?: number;
+  alertThreshold: number;
   status: 'active' | 'inactive';
-  description?: string;
   images?: string[];
-  isAutoCreated: boolean;
-  needsCompletion: boolean;
-  createdAt: Date;
-  updatedAt?: Date;
+  isAutoCreated?: boolean;
+  needsCompletion?: boolean;
+}
+
+// 箱子数量类型
+export interface BoxQuantity {
+  boxNo: string;
+  quantity: number;
+  specs?: string;
+}
+
+// 装箱单相关类型
+export interface PackingList extends Omit<BaseModel, 'createdAt' | 'updatedAt'> {
+  code: string;
+  date: string;
+  storeName: string;
+  type: string;
+  totalBoxes: number;
+  totalPieces: number;
+  totalWeight: number;
+  totalVolume: number;
+  items: PackingListItem[];
+  remarks?: string;
+  status: PackingListStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 装箱单明细类型
+export interface PackingListItem {
+  sku: string;
+  quantity: number;
+  product: Product;
+  boxQuantities: BoxQuantity[];
+  weight: number;
+  volume: number;
+}
+
+// API响应类型
+export interface ApiResponse<T = any> {
+  code: number;
+  data: T;
+  message: string;
 }
 
 export interface ProductQuery extends QueryParams {
@@ -35,12 +110,6 @@ export interface ProductCreate extends Omit<Product, '_id' | 'id' | 'createdAt' 
 export interface ProductUpdate extends Partial<ProductCreate> {}
 
 // 装箱单相关类型
-export interface BoxQuantity {
-  boxNo: string;
-  quantity: number;
-  specs?: string;
-}
-
 export interface PackingItem {
   productId: string;
   sku: string;
@@ -49,30 +118,8 @@ export interface PackingItem {
   boxQuantities: BoxQuantity[];
 }
 
-export interface PackingList {
-  _id: string;
-  storeName: string;
-  type: 'normal' | 'textile' | 'mixed';
-  totalBoxes: number;
-  totalWeight: number;
-  totalVolume: number;
-  totalValue: number;
-  totalPieces: number;
-  status: 'pending' | 'approved';
-  items: PackingListItem[];
-  remarks?: string;
-  createdAt: Date;
-  updatedAt?: Date;
-  approvedAt?: Date;
-  approvedBy?: string;
-}
-
-export interface PackingListQuery {
-  page?: number;
-  pageSize?: number;
-  keyword?: string;
-  type?: string;
-  status?: string;
+export interface PackingListQuery extends QueryParams {
+  status?: PackingListStatus;
   startDate?: string;
   endDate?: string;
 }
@@ -98,18 +145,6 @@ export interface OrderQuery extends QueryParams {
   status?: Order['status'];
   startDate?: string;
   endDate?: string;
-}
-
-// 用户相关类型
-export interface User {
-  _id: string;
-  username: string;
-  role: 'admin' | 'manager' | 'operator';
-  permissions: string[];
-  status: 'active' | 'inactive';
-  lastLoginAt?: Date;
-  createdAt: Date;
-  updatedAt?: Date;
 }
 
 // 操作日志相关类型
@@ -147,47 +182,22 @@ export interface Backup {
   completedAt?: Date;
 }
 
-// 通用响应类型
-export interface ApiResponse<T> {
-  code?: number;
-  data: T;
-  message?: string;
-}
-
 // 列表响应类型
-export interface ListResponse<T> {
-  code?: number;
+export interface ListResponse<T> extends ApiResponse {
   items: T[];
   pagination: {
     total: number;
     current: number;
     pageSize: number;
   };
-  message?: string;
 }
 
-// 装箱单明细类型
-export interface PackingListItem {
-  product: string | Product;
-  boxQuantities: BoxQuantity[];
-  totalQuantity: number;
-  sku: string;
-  chineseName: string;
-}
-
-// 查询参数类型
-export interface BaseQuery {
-  page?: number;
-  pageSize?: number;
-  keyword?: string;
-}
-
-export interface UserQuery extends BaseQuery {
+export interface UserQuery extends QueryParams {
   role?: string;
   status?: string;
 }
 
-export interface LogQuery extends BaseQuery {
+export interface LogQuery extends QueryParams {
   module?: string;
   action?: string;
   status?: string;
@@ -195,7 +205,7 @@ export interface LogQuery extends BaseQuery {
   endDate?: string;
 }
 
-export interface BackupQuery extends BaseQuery {
+export interface BackupQuery extends QueryParams {
   type?: string;
   status?: string;
   startDate?: string;

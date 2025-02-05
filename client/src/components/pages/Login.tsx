@@ -1,24 +1,27 @@
 import React from 'react';
 import { Form, Input, Button, Card, message } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import authService, { LoginParams } from '../../services/authService';
+import { useAuthContext } from '../../contexts/AuthContext';
+import authService from '../../services/authService';
+
+interface LoginForm {
+  username: string;
+  password: string;
+}
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = React.useState(false);
+  const { login } = useAuthContext();
+  const [form] = Form.useForm();
 
-  const onFinish = async (values: LoginParams) => {
+  const onFinish = async (values: LoginForm) => {
     try {
-      setLoading(true);
-      await authService.login(values);
-      message.success('登录成功');
-      navigate('/');
+      const response = await authService.login(values);
+      login(response.data.user, response.data.token);
+      navigate('/products');
     } catch (error) {
       console.error('登录失败:', error);
-      message.error('登录失败：用户名或密码错误');
-    } finally {
-      setLoading(false);
+      message.error('用户名或密码错误');
     }
   };
 
@@ -30,46 +33,32 @@ const Login: React.FC = () => {
       alignItems: 'center',
       background: '#f0f2f5'
     }}>
-      <Card
-        title="ANY-GO 系统登录"
-        style={{ width: 400 }}
-        headStyle={{ textAlign: 'center' }}
-      >
+      <Card title="ANY-GO 系统登录" style={{ width: 400 }}>
         <Form
+          form={form}
           name="login"
           onFinish={onFinish}
           autoComplete="off"
+          layout="vertical"
         >
           <Form.Item
+            label="用户名"
             name="username"
             rules={[{ required: true, message: '请输入用户名' }]}
           >
-            <Input
-              prefix={<UserOutlined />}
-              placeholder="用户名"
-              size="large"
-            />
+            <Input />
           </Form.Item>
 
           <Form.Item
+            label="密码"
             name="password"
             rules={[{ required: true, message: '请输入密码' }]}
           >
-            <Input.Password
-              prefix={<LockOutlined />}
-              placeholder="密码"
-              size="large"
-            />
+            <Input.Password />
           </Form.Item>
 
           <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              block
-              size="large"
-            >
+            <Button type="primary" htmlType="submit" block>
               登录
             </Button>
           </Form.Item>

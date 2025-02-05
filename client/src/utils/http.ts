@@ -1,9 +1,10 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { message } from 'antd';
 
-// 创建 axios 实例
-const http: AxiosInstance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+export const http: AxiosInstance = axios.create({
+  baseURL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -12,8 +13,7 @@ const http: AxiosInstance = axios.create({
 
 // 请求拦截器
 http.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    // 从 localStorage 获取 token
+  (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -34,11 +34,10 @@ http.interceptors.response.use(
     if (error.response) {
       switch (error.response.status) {
         case 401:
-          // 未认证，清除 token 并跳转到登录页
+          message.error('登录已过期，请重新登录');
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           window.location.href = '/login';
-          message.error('登录已过期，请重新登录');
           break;
         case 403:
           message.error('没有操作权限');
@@ -47,18 +46,14 @@ http.interceptors.response.use(
           message.error('请求的资源不存在');
           break;
         case 500:
-          message.error('服务器内部错误');
+          message.error('服务器错误');
           break;
         default:
           message.error(error.response.data?.message || '请求失败');
       }
-    } else if (error.request) {
-      message.error('网络连接失败，请检查网络');
     } else {
-      message.error('请求配置错误');
+      message.error('网络错误，请检查网络连接');
     }
     return Promise.reject(error);
   }
-);
-
-export { http }; 
+); 
