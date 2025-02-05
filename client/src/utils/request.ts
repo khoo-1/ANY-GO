@@ -20,7 +20,7 @@ const RETRY_DELAY = 500;
 // 检查服务器是否可用
 const checkServerAvailability = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/packing-lists`, { timeout: 5000 });
+    const response = await axios.get(`${API_BASE_URL}/`, { timeout: 5000 });
     return response.status === 200;
   } catch (error) {
     console.error('服务器检查失败:', error);

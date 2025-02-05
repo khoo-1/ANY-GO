@@ -3,8 +3,25 @@ import { Product, QueryParams, PagedResponse } from '../types/api';
 
 const productService = {
   getList: async (params: QueryParams): Promise<PagedResponse<Product>> => {
-    const response = await http.get<PagedResponse<Product>>('/api/products', { params });
-    return response.data;
+    const queryParams = {
+      ...params
+    };
+    console.log('发送请求到服务器，参数:', queryParams);
+    const response = await http.get<{ code: number; data: PagedResponse<Product>; message: string }>('/api/products', { params: queryParams });
+    console.log('服务器响应:', response.data);
+    
+    if (!response.data || !response.data.data) {
+      console.error('服务器返回数据格式错误:', response.data);
+      throw new Error('服务器返回数据格式错误');
+    }
+
+    const { items, total, page, pageSize } = response.data.data;
+    return {
+      items: items || [],
+      total: total || 0,
+      page: page || 1,
+      pageSize: pageSize || 10
+    };
   },
 
   getById: async (id: string): Promise<Product> => {

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, BrowserRouter } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import Products from './components/pages/Products';
@@ -6,6 +6,21 @@ import PackingLists from './components/pages/PackingLists';
 import Login from './components/pages/Login';
 import authService from './services/authService';
 import { AuthProvider } from './contexts/AuthContext';
+
+// 全局处理 ResizeObserver 错误
+const ignoreResizeObserverError = () => {
+  const resizeObserverError = console.error;
+  console.error = (...args: any) => {
+    if (
+      args.length > 0 &&
+      typeof args[0] === 'string' &&
+      args[0].includes('ResizeObserver')
+    ) {
+      return;
+    }
+    resizeObserverError.apply(console, args);
+  };
+};
 
 // 路由配置
 const routerConfig = {
@@ -22,6 +37,11 @@ const PrivateRoute: React.FC<{ element: React.ReactElement }> = ({ element }) =>
 };
 
 const App: React.FC = () => {
+  // 在应用启动时设置错误处理
+  useEffect(() => {
+    ignoreResizeObserverError();
+  }, []);
+
   return (
     <BrowserRouter {...routerConfig}>
       <AuthProvider>

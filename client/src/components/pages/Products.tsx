@@ -33,8 +33,9 @@ import ProductForm from '../product/ProductForm';
 import { handleError } from '../../utils/errorHandler';
 import { AxiosError } from 'axios';
 import { ApiResponse } from '../../types';
-import type { UploadProps } from 'antd';
+import type { UploadProps } from 'antd/es/upload';
 import ProductDetail from '../product/ProductDetail';
+import { debounce } from 'lodash';
 
 const { Search } = Input;
 const { Title } = Typography;
@@ -60,10 +61,22 @@ const Products: React.FC = () => {
   const loadProducts = async () => {
     try {
       setLoading(true);
+      console.log('正在加载商品列表，查询参数:', query);
       const response = await productService.getList(query);
-      setProducts(response.items);
-      setTotal(response.total);
+      console.log('获取到的商品列表数据:', response);
+      if (response && Array.isArray(response.items)) {
+        setProducts(response.items);
+        setTotal(response.total);
+      } else if (response && Array.isArray(response)) {
+        // 处理直接返回数组的情况
+        setProducts(response);
+        setTotal(response.length);
+      } else {
+        console.error('返回的数据格式不正确:', response);
+        message.error('数据格式错误');
+      }
     } catch (error) {
+      console.error('加载商品列表失败:', error);
       message.error('加载商品列表失败');
     } finally {
       setLoading(false);
@@ -84,9 +97,14 @@ const Products: React.FC = () => {
     }
   };
 
-  const handleSearch = (values: any) => {
-    setQuery({ ...query, ...values, page: 1 });
-  };
+  const handleSearch = debounce((value: string) => {
+    if (typeof value !== 'string') {
+      console.warn('搜索值类型错误:', value);
+      return;
+    }
+    const trimmedValue = value.trim();
+    setQuery(prev => ({ ...prev, page: 1, keyword: trimmedValue }));
+  }, 300);
 
   const handleTypeFilter = (value: Product['type'] | undefined) => {
     setQuery({ ...query, page: 1, type: value });
@@ -304,127 +322,132 @@ const Products: React.FC = () => {
   return (
     <div>
       <Card>
-        <div style={{ marginBottom: 16 }}>
-          <Row gutter={[16, 16]} align="middle">
-            <Col flex="auto">
-              <Space>
-                <Button 
-                  type="primary" 
-                  icon={<PlusOutlined />}
-                  onClick={() => {
-                    setCurrentProduct(null);
-                    setVisible(true);
-                  }}
-                >
-                  添加商品
-                </Button>
-                <Button 
-                  icon={<DownloadOutlined />}
-                  onClick={handleDownloadTemplate}
-                >
-                  下载导入模板
-                </Button>
-                <Upload {...uploadProps}>
+        <Form form={form}>
+          <div style={{ marginBottom: 16 }}>
+            <Row gutter={[16, 16]} align="middle">
+              <Col flex="auto">
+                <Space>
                   <Button 
-                    icon={<UploadOutlined />} 
-                    loading={loading}
+                    type="primary" 
+                    icon={<PlusOutlined />}
+                    onClick={() => {
+                      setCurrentProduct(null);
+                      setVisible(true);
+                    }}
                   >
-                    批量导入
+                    添加商品
                   </Button>
-                </Upload>
-                <Button
-                  icon={<DownloadOutlined />}
-                  onClick={() => {
-                    window.open(`${process.env.REACT_APP_API_URL}/api/products/export?${new URLSearchParams(query as any)}`);
-                  }}
-                >
-                  导出列表
-                </Button>
-                {selectedRowKeys.length > 0 && (
-                  <Popconfirm
-                    title={`确定要删除选中的 ${selectedRowKeys.length} 个商品吗？`}
-                    onConfirm={handleBatchDelete}
-                    okText="确定"
-                    cancelText="取消"
+                  <Button 
+                    icon={<DownloadOutlined />}
+                    onClick={handleDownloadTemplate}
                   >
-                    <Button danger>
-                      批量删除
+                    下载导入模板
+                  </Button>
+                  <Upload {...uploadProps}>
+                    <Button 
+                      icon={<UploadOutlined />} 
+                      loading={loading}
+                    >
+                      批量导入
                     </Button>
-                  </Popconfirm>
-                )}
-              </Space>
-            </Col>
-            <Col>
-              <Space>
-                <Button 
-                  icon={<FilterOutlined />}
-                  onClick={() => setAdvancedSearch(!advancedSearch)}
-                >
-                  高级筛选
-                </Button>
-                <Search
-                  placeholder="搜索SKU/中文名"
-                  allowClear
-                  enterButton={<SearchOutlined />}
-                  onSearch={handleSearch}
-                  style={{ width: 300 }}
-                />
-              </Space>
-            </Col>
-          </Row>
+                  </Upload>
+                  <Button
+                    icon={<DownloadOutlined />}
+                    onClick={() => {
+                      window.open(`${process.env.REACT_APP_API_URL}/api/products/export?${new URLSearchParams(query as any)}`);
+                    }}
+                  >
+                    导出列表
+                  </Button>
+                  {selectedRowKeys.length > 0 && (
+                    <Popconfirm
+                      title={`确定要删除选中的 ${selectedRowKeys.length} 个商品吗？`}
+                      onConfirm={handleBatchDelete}
+                      okText="确定"
+                      cancelText="取消"
+                    >
+                      <Button danger>
+                        批量删除
+                      </Button>
+                    </Popconfirm>
+                  )}
+                </Space>
+              </Col>
+              <Col>
+                <Space>
+                  <Button 
+                    icon={<FilterOutlined />}
+                    onClick={() => setAdvancedSearch(!advancedSearch)}
+                  >
+                    高级筛选
+                  </Button>
+                  <Form.Item name="keyword" noStyle>
+                    <Input.Search
+                      placeholder="搜索SKU/中文名"
+                      allowClear
+                      enterButton={<SearchOutlined />}
+                      onSearch={handleSearch}
+                      style={{ width: 300 }}
+                    />
+                  </Form.Item>
+                </Space>
+              </Col>
+            </Row>
 
-          {advancedSearch && (
-            <Card style={{ marginTop: 16 }}>
-              <Form
-                form={form}
-                layout="inline"
-                onFinish={handleAdvancedSearch}
-              >
-                <Form.Item name="type" label="商品类型">
-                  <Select
-                    style={{ width: 120 }}
-                    allowClear
-                    placeholder="选择类型"
-                  >
-                    <Select.Option value="普货">普货</Select.Option>
-                    <Select.Option value="纺织">纺织</Select.Option>
-                    <Select.Option value="混装">混装</Select.Option>
-                  </Select>
-                </Form.Item>
-                <Form.Item name="showAutoCreated" label="自动创建">
-                  <Select
-                    style={{ width: 120 }}
-                    allowClear
-                    placeholder="筛选来源"
-                  >
-                    <Select.Option value="true">显示</Select.Option>
-                    <Select.Option value="false">隐藏</Select.Option>
-                  </Select>
-                </Form.Item>
-                <Form.Item name="needsCompletion" label="信息完整性">
-                  <Select
-                    style={{ width: 120 }}
-                    allowClear
-                    placeholder="筛选状态"
-                  >
-                    <Select.Option value="true">待完善</Select.Option>
-                    <Select.Option value="false">已完善</Select.Option>
-                  </Select>
-                </Form.Item>
-                <Form.Item>
-                  <Space>
-                    <Button type="primary" htmlType="submit">
-                      搜索
-                    </Button>
-                    <Button onClick={handleReset}>
-                      重置
-                    </Button>
-                  </Space>
-                </Form.Item>
-              </Form>
-            </Card>
-          )}
-        </div>
+            {advancedSearch && (
+              <Card style={{ marginTop: 16 }}>
+                <Form
+                  form={form}
+                  onFinish={handleAdvancedSearch}
+                  layout="inline"
+                  style={{ marginTop: 16 }}
+                >
+                  <Form.Item name="type" label="商品类型">
+                    <Select
+                      style={{ width: 120 }}
+                      allowClear
+                      placeholder="选择类型"
+                    >
+                      <Select.Option value="普货">普货</Select.Option>
+                      <Select.Option value="纺织">纺织</Select.Option>
+                      <Select.Option value="混装">混装</Select.Option>
+                    </Select>
+                  </Form.Item>
+                  <Form.Item name="showAutoCreated" label="自动创建">
+                    <Select
+                      style={{ width: 120 }}
+                      allowClear
+                      placeholder="筛选来源"
+                    >
+                      <Select.Option value="true">显示</Select.Option>
+                      <Select.Option value="false">隐藏</Select.Option>
+                    </Select>
+                  </Form.Item>
+                  <Form.Item name="needsCompletion" label="信息完整性">
+                    <Select
+                      style={{ width: 120 }}
+                      allowClear
+                      placeholder="筛选状态"
+                    >
+                      <Select.Option value="true">待完善</Select.Option>
+                      <Select.Option value="false">已完善</Select.Option>
+                    </Select>
+                  </Form.Item>
+                  <Form.Item>
+                    <Space>
+                      <Button type="primary" htmlType="submit">
+                        搜索
+                      </Button>
+                      <Button onClick={handleReset}>
+                        重置
+                      </Button>
+                    </Space>
+                  </Form.Item>
+                </Form>
+              </Card>
+            )}
+          </div>
+        </Form>
 
         <Table
           loading={loading}

@@ -5,14 +5,7 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    trim: true,
-    validate: {
-      validator: function(v) {
-        // 允许字母、数字、连字符和下划线，长度6-30位
-        return /^[A-Za-z0-9\-_]{6,30}$/.test(v);
-      },
-      message: props => `${props.value} 不是有效的SKU格式！SKU只能包含字母、数字、连字符和下划线，长度6-30位`
-    }
+    trim: true
   },
   name: {
     type: String,

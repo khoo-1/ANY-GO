@@ -28,7 +28,6 @@ router.get('/', async (req, res) => {
       type,
       category, 
       status,
-      showAutoCreated = 'true',
       needsCompletion
     } = req.query;
     
@@ -57,11 +56,6 @@ router.get('/', async (req, res) => {
       query.status = status;
     }
 
-    // 是否显示自动创建的商品
-    if (showAutoCreated === 'false') {
-      query.isAutoCreated = false;
-    }
-
     // 是否只显示待完善的商品
     if (needsCompletion === 'true') {
       query.needsCompletion = true;
@@ -69,6 +63,15 @@ router.get('/', async (req, res) => {
 
     console.log('商品查询条件:', query);
     console.log('分页参数:', { page, pageSize });
+
+    // 先获取所有商品，检查数据
+    const allProducts = await Product.find({});
+    console.log('数据库中所有商品:', allProducts.map(p => ({ 
+      sku: p.sku, 
+      chineseName: p.chineseName,
+      isAutoCreated: p.isAutoCreated,
+      type: p.type
+    })));
 
     const skip = (parseInt(page) - 1) * parseInt(pageSize);
     const total = await Product.countDocuments(query);
@@ -78,6 +81,12 @@ router.get('/', async (req, res) => {
       .limit(parseInt(pageSize));
 
     console.log(`查询到 ${products.length} 个商品，总数：${total}`);
+    console.log('当前页商品:', products.map(p => ({ 
+      sku: p.sku, 
+      chineseName: p.chineseName,
+      isAutoCreated: p.isAutoCreated,
+      type: p.type
+    })));
 
     res.json({
       code: 0,

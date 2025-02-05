@@ -228,8 +228,8 @@ const PrintPreview: React.FC<{
               <div>
                 <div>总箱数：{packingList.totalBoxes} 箱</div>
                 <div>总数量：{packingList.totalPieces} 件</div>
-                <div>总重量：{packingList.totalWeight.toFixed(2)} kg</div>
-                <div>总体积：{packingList.totalVolume.toFixed(3)} m³</div>
+                <div>总重量：{(packingList.totalWeight || 0).toFixed(2)} kg</div>
+                <div>总体积：{(packingList.totalVolume || 0).toFixed(3)} m³</div>
               </div>
             </div>
           </div>
@@ -386,13 +386,13 @@ const PackingListDetail: React.FC<{
           </div>
           <div>
             <div style={{ fontWeight: 'bold', marginBottom: 4 }}>箱数信息</div>
-            <div>总箱数：{packingList.totalBoxes} 箱</div>
-            <div>总数量：{packingList.totalPieces} 件</div>
+            <div>总箱数：{packingList.totalBoxes || 0} 箱</div>
+            <div>总数量：{packingList.totalPieces || 0} 件</div>
           </div>
           <div>
             <div style={{ fontWeight: 'bold', marginBottom: 4 }}>重量体积</div>
-            <div>总重量：{packingList.totalWeight.toFixed(2)} kg</div>
-            <div>总体积：{packingList.totalVolume.toFixed(3)} m³</div>
+            <div>总重量：{(packingList.totalWeight || 0).toFixed(2)} kg</div>
+            <div>总体积：{(packingList.totalVolume || 0).toFixed(3)} m³</div>
           </div>
         </div>
       </div>
@@ -427,13 +427,13 @@ const PackingListDetail: React.FC<{
               />
               <div style={{ marginTop: 16, textAlign: 'right' }}>
                 <Space>
-                  <span>箱子规格：{items[0].specs.length} × {items[0].specs.width} × {items[0].specs.height} cm</span>
+                  <span>箱子规格：{items[0]?.specs?.length || 0} × {items[0]?.specs?.width || 0} × {items[0]?.specs?.height || 0} cm</span>
                   <Divider type="vertical" />
-                  <span>箱重：{items[0].specs.weight.toFixed(2)} kg</span>
+                  <span>箱重：{((items[0]?.specs?.weight) || 0).toFixed(2)} kg</span>
                   <Divider type="vertical" />
-                  <span>体积：{items[0].specs.volume.toFixed(3)} m³</span>
+                  <span>体积：{((items[0]?.specs?.volume) || 0).toFixed(3)} m³</span>
                   <Divider type="vertical" />
-                  <span>单边+1：{items[0].specs.edgeVolume.toFixed(3)} m³</span>
+                  <span>单边+1：{((items[0]?.specs?.edgeVolume) || 0).toFixed(3)} m³</span>
                 </Space>
               </div>
             </>
@@ -605,13 +605,13 @@ const PackingLists: React.FC = () => {
       title: '总重量(kg)',
       dataIndex: 'totalWeight',
       width: 120,
-      render: (val: number) => val.toFixed(2)
+      render: (val: number) => (val || 0).toFixed(2)
     },
     {
       title: '总体积(m³)',
       dataIndex: 'totalVolume',
       width: 120,
-      render: (val: number) => val.toFixed(3)
+      render: (val: number) => (val || 0).toFixed(3)
     },
     {
       title: '总件数',
