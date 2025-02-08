@@ -52,6 +52,30 @@ const routes: RouteRecordRaw[] = [
         path: 'profit',
         name: 'profit',
         component: () => import('../views/profit/ProfitAnalysis.vue')
+      },
+      {
+        path: 'stock',
+        name: 'stock',
+        component: () => import('../views/stock/StockTimeline.vue'),
+        meta: { title: '库存时间线', icon: 'Histogram', permission: 'stock:read' }
+      },
+      {
+        path: 'stock/transit',
+        name: 'transit-stock',
+        component: () => import('../views/stock/TransitStock.vue'),
+        meta: { title: '在途库存', icon: 'Ship', permission: 'stock:read' }
+      },
+      {
+        path: 'stock/analysis',
+        name: 'inventory-analysis',
+        component: () => import('../views/inventory/InventoryAnalysis.vue'),
+        meta: { title: '库存分析', icon: 'DataLine', permission: 'stock:read' }
+      },
+      {
+        path: 'sales',
+        name: 'sales',
+        component: () => import('../views/sales/OrderList.vue'),
+        meta: { title: '销售订单', icon: 'ShoppingCart', permission: 'sales:read' }
       }
     ]
   },

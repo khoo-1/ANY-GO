@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Enum, Float, Integer, ForeignKey, JSON
+from sqlalchemy import Column, String, Enum, Float, Integer, ForeignKey, JSON, Date
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 import enum
@@ -83,4 +83,40 @@ class StockAlert(BaseModel):
 
     # 关联
     product = relationship("Product", backref="stock_alerts")
-    resolver = relationship("User", backref="resolved_alerts") 
+    resolver = relationship("User", backref="resolved_alerts")
+
+class StockTimeline(BaseModel):
+    """库存时间线记录"""
+    __tablename__ = "stock_timeline"
+
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    date = Column(Date, nullable=False)  # 记录日期
+    opening_stock = Column(Integer, nullable=False)  # 期初库存
+    closing_stock = Column(Integer, nullable=False)  # 期末库存
+    in_transit = Column(Integer, default=0)  # 在途库存
+    in_transit_details = Column(JSON, nullable=True)  # 在途明细 [{packing_list_id, quantity, estimated_arrival}]
+    incoming = Column(Integer, default=0)  # 入库数量
+    outgoing = Column(Integer, default=0)  # 出库数量
+    adjustments = Column(Integer, default=0)  # 调整数量
+    
+    # 关联
+    product = relationship("Product", backref="stock_timeline")
+
+    class Config:
+        unique_together = [("product_id", "date")]
+
+class TransitStock(BaseModel):
+    """在途库存记录"""
+    __tablename__ = "transit_stock"
+
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    packing_list_id = Column(Integer, ForeignKey("packing_lists.id"), nullable=False)
+    quantity = Column(Integer, nullable=False)  # 数量
+    shipping_date = Column(Date, nullable=True)  # 发货日期
+    estimated_arrival = Column(Date, nullable=True)  # 预计到货日期
+    transport_type = Column(String, nullable=False)  # 运输方式：sea-海运，air-空运
+    status = Column(String, default="in_transit")  # 状态：in_transit-在途，arrived-已到货，cancelled-已取消
+    
+    # 关联
+    product = relationship("Product", backref="transit_stock")
+    packing_list = relationship("PackingList", backref="transit_items") 

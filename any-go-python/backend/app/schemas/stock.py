@@ -1,6 +1,6 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 from .base import BaseSchema, PageParams
 
@@ -176,4 +176,70 @@ class StockSummary(BaseModel):
     total_quantity: int
     total_amount: float
     alert_count: int
-    check_count: int 
+    check_count: int
+
+class StockTimelineBase(BaseSchema):
+    """库存时间线基础模式"""
+    product_id: int
+    date: date
+    opening_stock: int
+    closing_stock: int
+    in_transit: int = 0
+    in_transit_details: Optional[List[Dict]] = None
+    incoming: int = 0
+    outgoing: int = 0
+    adjustments: int = 0
+
+class StockTimelineCreate(StockTimelineBase):
+    """创建库存时间线"""
+    pass
+
+class StockTimelineInDB(StockTimelineBase):
+    """数据库中的库存时间线"""
+    id: int
+
+class StockTimelineResponse(StockTimelineInDB):
+    """库存时间线响应"""
+    product_sku: str
+    product_name: str
+
+class TransitStockBase(BaseSchema):
+    """在途库存基础模式"""
+    product_id: int
+    packing_list_id: int
+    quantity: int
+    shipping_date: Optional[date] = None
+    estimated_arrival: Optional[date] = None
+    transport_type: str = Field(..., pattern="^(sea|air)$")
+    status: str = Field(default="in_transit", pattern="^(in_transit|arrived|cancelled)$")
+
+class TransitStockCreate(TransitStockBase):
+    """创建在途库存"""
+    pass
+
+class TransitStockInDB(TransitStockBase):
+    """数据库中的在途库存"""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+class TransitStockResponse(TransitStockInDB):
+    """在途库存响应"""
+    product_sku: str
+    product_name: str
+    packing_list_no: str
+
+class StockTimelineQuery(PageParams):
+    """库存时间线查询参数"""
+    product_id: Optional[int] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+class TransitStockQuery(PageParams):
+    """在途库存查询参数"""
+    product_id: Optional[int] = None
+    packing_list_id: Optional[int] = None
+    transport_type: Optional[str] = Field(None, pattern="^(sea|air)$")
+    status: Optional[str] = Field(None, pattern="^(in_transit|arrived|cancelled)$")
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None 
