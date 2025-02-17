@@ -1,32 +1,42 @@
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
 from .base import BaseSchema
 
 class UserBase(BaseSchema):
     """用户基础模式"""
-    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr
+    username: str
+    full_name: Optional[str] = None
+    is_active: bool = True
     role: str = Field(default="operator", pattern="^(admin|manager|operator)$")
     status: str = Field(default="active", pattern="^(active|inactive)$")
     permissions: List[str] = []
 
 class UserCreate(UserBase):
     """创建用户"""
-    password: str = Field(..., min_length=6, max_length=50)
+    password: str
 
-class UserUpdate(BaseSchema):
+class UserUpdate(UserBase):
     """更新用户"""
-    username: Optional[str] = Field(None, min_length=3, max_length=50)
-    role: Optional[str] = Field(None, pattern="^(admin|manager|operator)$")
-    status: Optional[str] = Field(None, pattern="^(active|inactive)$")
-    permissions: Optional[List[str]] = None
+    password: Optional[str] = None
 
-class UserInDB(UserBase):
+class UserInDBBase(UserBase):
     """数据库中的用户"""
     id: int
     created_at: datetime
     updated_at: datetime
-    last_login: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class User(UserInDBBase):
+    """返回给API的用户"""
+    pass
+
+class UserInDB(UserInDBBase):
+    """数据库中完整的用户"""
+    hashed_password: str
 
 class UserResponse(UserBase):
     """用户响应"""

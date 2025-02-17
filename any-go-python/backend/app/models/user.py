@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Enum, ARRAY
+from sqlalchemy import Column, String, Enum, ARRAY, Boolean
 from .base import BaseModel
 import enum
 
@@ -15,8 +15,12 @@ class User(BaseModel):
     """用户模型"""
     __tablename__ = "users"
 
+    email = Column(String, unique=True, index=True, nullable=False)
     username = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
     role = Column(Enum(UserRole), default=UserRole.OPERATOR, nullable=False)
     status = Column(Enum(UserStatus), default=UserStatus.ACTIVE, nullable=False)
     permissions = Column(ARRAY(String), nullable=False, default=list)
