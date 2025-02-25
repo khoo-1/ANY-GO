@@ -1,4 +1,5 @@
 import { saveAs } from 'file-saver'
+import * as XLSX from 'xlsx'
 
 // 生成装箱单Excel模板
 export function generatePackingListTemplate() {
@@ -70,8 +71,8 @@ export function validatePackingListExcel(file: File): Promise<{
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer)
-        const workbook = XLSX.read(data, { type: 'array' })
+        const buffer = new Uint8Array(e.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(buffer, { type: 'array' })
 
         const errors: string[] = []
 
@@ -99,8 +100,8 @@ export function validatePackingListExcel(file: File): Promise<{
         }
 
         // 4. 验证数据有效性
-        const data = XLSX.utils.sheet_to_json(mainSheet, { range: 6 })
-        if (data.length === 0) {
+        const rows = XLSX.utils.sheet_to_json(mainSheet, { range: 6 })
+        if (rows.length === 0) {
           errors.push('Excel文件中没有商品数据')
         }
 

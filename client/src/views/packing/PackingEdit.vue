@@ -6,54 +6,38 @@
           <el-icon><ArrowLeft /></el-icon>
           返回
         </el-button>
-        <h2>{{ isEdit ? '编辑装箱单' : '新增装箱单' }}</h2>
+        <h2>{{ isEdit ? '编辑装箱单' : '新建装箱单' }}</h2>
       </div>
       <div class="header-actions">
-        <el-upload
-          class="upload-demo"
-          action="#"
-          :auto-upload="false"
-          :show-file-list="false"
-          accept=".xlsx,.xls"
-          :on-change="handleImportFile"
-        >
-          <el-button>导入Excel</el-button>
-        </el-upload>
-        <el-button @click="generatePackingListTemplate">
-          <el-icon><Download /></el-icon>
-          下载模板
-        </el-button>
-        <el-button @click="showImportHistory = true">导入历史</el-button>
-        <el-button @click="router.back()">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">
-          保存
-        </el-button>
+        <el-button @click="handleImport">导入</el-button>
+        <el-button type="primary" @click="handleSave">保存</el-button>
       </div>
     </div>
 
-    <el-form 
+    <el-form
       ref="formRef"
       :model="form"
       :rules="rules"
       label-width="100px"
       v-loading="loading"
     >
-      <el-card>
+      <!-- 基本信息 -->
+      <el-card class="mb-4">
         <template #header>
           <div class="card-header">
             <span>基本信息</span>
           </div>
         </template>
-
+        
         <el-row :gutter="20">
           <el-col :span="8">
             <el-form-item label="店铺名称" prop="storeName">
-              <el-input v-model="form.storeName" placeholder="请输入店铺名称" />
+              <el-input v-model="form.storeName" />
             </el-form-item>
           </el-col>
           <el-col :span="8">
             <el-form-item label="类型" prop="type">
-              <el-select v-model="form.type" placeholder="请选择类型">
+              <el-select v-model="form.type" style="width: 100%">
                 <el-option label="普货" value="普货" />
                 <el-option label="纺织" value="纺织" />
                 <el-option label="混装" value="混装" />
@@ -61,53 +45,100 @@
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="备注" prop="remarks">
-              <el-input v-model="form.remarks" placeholder="请输入备注" />
+            <el-form-item label="备注">
+              <el-input v-model="form.remarks" type="textarea" :rows="1" />
             </el-form-item>
           </el-col>
         </el-row>
       </el-card>
 
       <!-- 商品明细 -->
-      <el-card class="mt-4">
+      <el-card class="mb-4">
         <template #header>
           <div class="card-header">
             <span>商品明细</span>
-            <el-button type="primary" @click="showProductDialog">
-              添加商品
-            </el-button>
+            <el-button type="primary" @click="addItem">添加商品</el-button>
           </div>
         </template>
 
         <el-table :data="form.items" border>
-          <el-table-column prop="product.sku" label="SKU" width="150" />
-          <el-table-column prop="product.name" label="商品名称" min-width="200" />
-          <el-table-column prop="product.chineseName" label="中文名称" min-width="200" />
-          <el-table-column prop="quantity" label="总数量" width="120">
+          <el-table-column type="index" width="50" />
+          <el-table-column label="商品" min-width="300">
             <template #default="{ row }">
-              {{ calculateTotalQuantity(row.boxQuantities) }}
+              <el-select
+                v-model="row.productId"
+                filterable
+                remote
+                :remote-method="searchProducts"
+                :loading="productLoading"
+                style="width: 100%"
+                placeholder="输入SKU或名称搜索"
+                @change="handleProductChange($event, row)"
+              >
+                <el-option
+                  v-for="item in productOptions"
+                  :key="item.id"
+                  :label="`${item.sku} - ${item.name}`"
+                  :value="item.id"
+                >
+                  <div>{{ item.sku }} - {{ item.name }}</div>
+                  <div class="text-gray">{{ item.chineseName }}</div>
+                </el-option>
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="总数量" width="120">
+            <template #default="{ row }">
+              <el-input-number
+                v-model="row.quantity"
+                :min="1"
+                @change="calculateTotals"
+              />
             </template>
           </el-table-column>
           <el-table-column label="装箱明细" min-width="300">
             <template #default="{ row }">
-              <div class="box-quantities">
-                <el-tag 
-                  v-for="(box, index) in row.boxQuantities"
-                  :key="index"
-                  closable
-                  @close="removeBoxQuantity(row, index)"
+              <div
+                v-for="(box, index) in row.boxQuantities"
+                :key="index"
+                class="box-quantity"
+              >
+                <el-input
+                  v-model="box.boxNo"
+                  placeholder="箱号"
+                  style="width: 100px"
+                />
+                <el-input-number
+                  v-model="box.quantity"
+                  :min="1"
+                  placeholder="数量"
+                  @change="validateBoxQuantities(row)"
+                />
+                <el-input
+                  v-model="box.specs"
+                  placeholder="规格说明"
+                  style="width: 150px"
+                />
+                <el-button
+                  type="danger"
+                  link
+                  @click="removeBoxQuantity(row, index)"
                 >
-                  {{ box.boxNo }}: {{ box.quantity }}件
-                </el-tag>
-                <el-button link type="primary" @click="showBoxDialog(row)">
-                  添加
+                  删除
                 </el-button>
               </div>
+              <el-button link type="primary" @click="addBoxQuantity(row)">
+                添加箱号
+              </el-button>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="操作" width="100" fixed="right">
             <template #default="{ $index }">
-              <el-button link type="danger" @click="removeItem($index)">
+              <el-button
+                type="danger"
+                link
+                @click="removeItem($index)"
+              >
                 删除
               </el-button>
             </template>
@@ -116,490 +147,303 @@
       </el-card>
 
       <!-- 箱子规格 -->
-      <el-card class="mt-4">
+      <el-card>
         <template #header>
           <div class="card-header">
             <span>箱子规格</span>
-            <el-button type="primary" @click="addBoxSpec">
-              添加箱子
-            </el-button>
+            <el-button type="primary" @click="addBoxSpec">添加箱规</el-button>
           </div>
         </template>
 
         <el-table :data="form.boxSpecs" border>
           <el-table-column type="index" label="箱号" width="80" />
-          <el-table-column label="尺寸(cm)" width="400">
+          <el-table-column label="尺寸(cm)" width="300">
             <template #default="{ row }">
-              <el-input-number 
-                v-model="row.length" 
-                :min="0" 
-                :precision="1"
+              <el-input-number
+                v-model="row.length"
+                :min="1"
                 placeholder="长"
-                style="width: 120px"
-                @change="calculateVolume(row)"
+                @change="calculateBoxVolume(row)"
               />
               ×
-              <el-input-number 
-                v-model="row.width" 
-                :min="0" 
-                :precision="1"
+              <el-input-number
+                v-model="row.width"
+                :min="1"
                 placeholder="宽"
-                style="width: 120px"
-                @change="calculateVolume(row)"
+                @change="calculateBoxVolume(row)"
               />
               ×
-              <el-input-number 
-                v-model="row.height" 
-                :min="0" 
-                :precision="1"
+              <el-input-number
+                v-model="row.height"
+                :min="1"
                 placeholder="高"
-                style="width: 120px"
-                @change="calculateVolume(row)"
+                @change="calculateBoxVolume(row)"
               />
             </template>
           </el-table-column>
-          <el-table-column label="重量(kg)" width="150">
+          <el-table-column label="重量(kg)" width="120">
             <template #default="{ row }">
-              <el-input-number 
-                v-model="row.weight" 
-                :min="0" 
+              <el-input-number
+                v-model="row.weight"
+                :min="0"
                 :precision="2"
-                style="width: 120px"
+                @change="calculateTotals"
               />
             </template>
           </el-table-column>
-          <el-table-column label="体积(m³)" width="150">
+          <el-table-column label="体积(m³)" width="120">
             <template #default="{ row }">
-              {{ row.volume?.toFixed(3) || '-' }}
+              {{ row.volume?.toFixed(4) }}
             </template>
           </el-table-column>
-          <el-table-column label="边体积(m³)" width="150">
+          <el-table-column label="边体积(m³)" width="120">
             <template #default="{ row }">
-              {{ row.edgeVolume?.toFixed(3) || '-' }}
+              {{ row.edgeVolume?.toFixed(4) }}
             </template>
           </el-table-column>
-          <el-table-column label="总件数" width="120">
+          <el-table-column label="总件数" width="100">
             <template #default="{ row }">
-              {{ calculateBoxTotalPieces(row) }}
+              {{ row.totalPieces }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="操作" width="100" fixed="right">
             <template #default="{ $index }">
-              <el-button 
-                link 
-                type="danger" 
+              <el-button
+                type="danger"
+                link
                 @click="removeBoxSpec($index)"
-                :disabled="hasBoxQuantities($index)"
               >
                 删除
               </el-button>
             </template>
           </el-table-column>
         </el-table>
+
+        <div class="totals">
+          <div class="total-item">
+            <span class="label">总箱数：</span>
+            <span class="value">{{ form.totalBoxes }}</span>
+          </div>
+          <div class="total-item">
+            <span class="label">总重量：</span>
+            <span class="value">{{ form.totalWeight?.toFixed(2) }}kg</span>
+          </div>
+          <div class="total-item">
+            <span class="label">总体积：</span>
+            <span class="value">{{ form.totalVolume?.toFixed(4) }}m³</span>
+          </div>
+          <div class="total-item">
+            <span class="label">总件数：</span>
+            <span class="value">{{ form.totalPieces }}</span>
+          </div>
+        </div>
       </el-card>
     </el-form>
 
-    <!-- 选择商品对话框 -->
+    <!-- 导入对话框 -->
     <el-dialog
-      v-model="productDialogVisible"
-      title="选择商品"
-      width="800px"
-      destroy-on-close
-    >
-      <div class="dialog-search">
-        <el-input
-          v-model="productSearch"
-          placeholder="输入SKU或名称搜索"
-          clearable
-          @input="debouncedSearch"
-        >
-          <template #append>
-            <el-button @click="debouncedSearch">
-              <el-icon><Search /></el-icon>
-            </el-button>
-          </template>
-        </el-input>
-      </div>
-
-      <el-table
-        :data="productList"
-        v-loading="searching"
-        :height="virtualScrollProps.height"
-        :virtual-scrolling="true"
-        :item-size="virtualScrollProps.itemSize"
-        border
-        @row-click="handleProductSelect"
-      >
-        <el-table-column prop="sku" label="SKU" width="150" />
-        <el-table-column prop="name" label="商品名称" min-width="200" />
-        <el-table-column prop="chineseName" label="中文名称" min-width="200" />
-        <el-table-column prop="type" label="类型" width="100" />
-        <el-table-column prop="stock" label="库存" width="100" />
-      </el-table>
-
-      <template #footer>
-        <el-button @click="productDialogVisible = false">取消</el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 装箱数量对话框 -->
-    <el-dialog
-      v-model="boxDialogVisible"
-      title="添加装箱数量"
+      v-model="importDialogVisible"
+      title="导入装箱单"
       width="500px"
-      destroy-on-close
     >
-      <el-form :model="boxForm" label-width="100px">
-        <el-form-item label="选择箱子">
-          <el-select v-model="boxForm.boxNo" placeholder="请选择箱子">
-            <el-option
-              v-for="option in boxNoOptions"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="数量">
-          <el-input-number 
-            v-model="boxForm.quantity" 
-            :min="1" 
-            :precision="0"
-          />
-        </el-form-item>
-      </el-form>
+      <el-upload
+        class="upload-demo"
+        drag
+        action="#"
+        :auto-upload="false"
+        :on-change="handleFileChange"
+        :limit="1"
+        accept=".xlsx,.xls"
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">
+          将文件拖到此处，或<em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            请上传Excel文件，
+            <el-button link type="primary" @click="downloadTemplate">
+              下载模板
+            </el-button>
+          </div>
+        </template>
+      </el-upload>
+
+      <el-progress
+        v-if="importing"
+        :percentage="importProgress"
+        :status="importProgress === 100 ? 'success' : ''"
+      />
 
       <template #footer>
-        <el-button @click="boxDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmBoxQuantity">
-          确定
-        </el-button>
+        <span class="dialog-footer">
+          <el-button @click="importDialogVisible = false">取消</el-button>
+          <el-button
+            type="primary"
+            :loading="importing"
+            @click="confirmImport"
+          >
+            确定
+          </el-button>
+        </span>
       </template>
     </el-dialog>
-
-    <ImportHistoryDialog />
-    <ImportProgress />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Search, Download } from '@element-plus/icons-vue'
+import { ArrowLeft, UploadFilled } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
-import type { 
-  PackingList, 
+import type { Product } from '@/types/product'
+import type {
+  PackingList,
   PackingListItem,
   BoxQuantity,
-  BoxSpecs,
-  Product 
+  BoxSpecs
 } from '@/types/packing'
+import { usePackingStore } from '@/stores/packing'
 import packingApi from '@/api/packing'
 import productApi from '@/api/product'
-import { usePackingStore } from '@/stores/packing'
 import { generatePackingListTemplate, validatePackingListExcel } from '@/utils/excel'
 
 const router = useRouter()
 const route = useRoute()
+const packingStore = usePackingStore()
+
+// 表单实例
 const formRef = ref<FormInstance>()
 const loading = ref(false)
-const submitting = ref(false)
-
-// 是否是编辑模式
-const isEdit = computed(() => route.params.id !== undefined)
+const isEdit = computed(() => !!route.params.id)
 
 // 表单数据
-const form = reactive({
+const form = reactive<{
+  storeName: string
+  type: string
+  remarks?: string
+  items: PackingListItem[]
+  boxSpecs: BoxSpecs[]
+  totalBoxes: number
+  totalWeight: number
+  totalVolume: number
+  totalPieces: number
+}>({
   storeName: '',
-  type: '',
+  type: '普货',
   remarks: '',
-  items: [] as PackingListItem[],
-  boxSpecs: [] as BoxSpecs[]
+  items: [],
+  boxSpecs: [],
+  totalBoxes: 0,
+  totalWeight: 0,
+  totalVolume: 0,
+  totalPieces: 0
 })
 
 // 表单验证规则
 const rules = {
-  storeName: [{ required: true, message: '请输入店铺名称', trigger: 'blur' }],
-  type: [{ required: true, message: '请选择类型', trigger: 'change' }]
+  storeName: [
+    { required: true, message: '请输入店铺名称', trigger: 'blur' }
+  ],
+  type: [
+    { required: true, message: '请选择类型', trigger: 'change' }
+  ]
 }
 
-// 商品选择相关
-const productDialogVisible = ref(false)
-const productSearch = ref('')
-const productList = ref<Product[]>([])
-const currentEditingItem = ref<PackingListItem>()
-
-// 装箱数量相关
-const boxDialogVisible = ref(false)
-const boxForm = reactive({
-  boxNo: '',
-  quantity: 1
-})
+// 商品选择
+const productLoading = ref(false)
+const productOptions = ref<Product[]>([])
 
 // 导入相关
+const importDialogVisible = ref(false)
 const importing = ref(false)
 const importProgress = ref(0)
-const showImportHistory = ref(false)
-
-// 添加store
-const packingStore = usePackingStore()
-
-// 处理文件导入
-async function handleImportFile(file: File) {
-  if (!file) return
-
-  const isExcel = [
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  ].includes(file.type)
-
-  if (!isExcel) {
-    ElMessage.error('请上传Excel文件')
-    return
-  }
-
-  try {
-    // 先验证Excel数据
-    const validation = await validatePackingListExcel(file)
-    if (!validation.valid) {
-      ElMessageBox.alert(validation.errors.join('\n'), '导入验证失败', {
-        type: 'error'
-      })
-      return
-    }
-
-    const startTime = performance.now()
-    importing.value = true
-    importProgress.value = 0
-    
-    const formData = new FormData()
-    formData.append('file', file)
-    
-    const result = await packingApi.import(formData, (progress) => {
-      importProgress.value = progress
-    })
-
-    if (result.success) {
-      ElMessage.success('导入成功')
-      // 更新表单数据
-      if (result.data) {
-        Object.assign(form, {
-          storeName: result.data.storeName,
-          type: result.data.type,
-          remarks: result.data.remarks,
-          items: result.data.items,
-          boxSpecs: result.data.boxSpecs
-        })
-        // 保存为模板
-        packingStore.addTemplate(result.data)
-      }
-
-      // 记录导入历史
-      packingStore.addImportHistory({
-        filename: file.name,
-        success: true
-      })
-    } else {
-      ElMessageBox.alert(result.errors.join('\n'), '导入失败', {
-        type: 'error'
-      })
-      // 记录导入历史
-      packingStore.addImportHistory({
-        filename: file.name,
-        success: false,
-        errors: result.errors
-      })
-    }
-
-    // 记录性能指标
-    const endTime = performance.now()
-    packingStore.recordPerformance('importTime', endTime - startTime)
-  } catch (error) {
-    console.error('导入失败:', error)
-    ElMessage.error('导入失败')
-    // 记录导入历史
-    packingStore.addImportHistory({
-      filename: file.name,
-      success: false,
-      errors: [error.message]
-    })
-  } finally {
-    importing.value = false
-    importProgress.value = 0
-  }
-}
-
-// 性能优化：防抖搜索
-const searchTimeout = ref<number>()
-function debouncedSearch() {
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-  }
-  searchTimeout.value = window.setTimeout(() => {
-    searchProducts()
-  }, 300)
-}
-
-// 性能优化：虚拟滚动相关
-const virtualScrollProps = {
-  itemSize: 40,
-  height: 400
-}
-
-// 性能优化：计算属性缓存
-const boxNoOptions = computed(() => {
-  return form.boxSpecs.map((_, index) => ({
-    label: `箱${index + 1}`,
-    value: `箱${index + 1}`
-  }))
-})
-
-// 清理定时器
-onBeforeUnmount(() => {
-  if (searchTimeout.value) {
-    clearTimeout(searchTimeout.value)
-  }
-})
+const importFile = ref<File>()
 
 // 加载数据
 async function loadData() {
   if (!isEdit.value) return
-
-  const id = Number(route.params.id)
-  if (!id) return
-
-  const startTime = performance.now()
-  loading.value = true
   
+  const id = parseInt(route.params.id as string)
+  loading.value = true
   try {
     const data = await packingApi.get(id)
-    Object.assign(form, {
-      storeName: data.storeName,
-      type: data.type,
-      remarks: data.remarks,
-      items: data.items,
-      boxSpecs: data.boxSpecs
-    })
+    Object.assign(form, data)
   } catch (error) {
     console.error('加载装箱单失败:', error)
     ElMessage.error('加载装箱单失败')
+    router.back()
   } finally {
     loading.value = false
-    const endTime = performance.now()
-    packingStore.recordPerformance('loadTime', endTime - startTime)
   }
 }
 
-// 搜索商品
-const searching = ref(false)
-async function searchProducts() {
-  const startTime = performance.now()
-  searching.value = true
-
-  // 先从缓存中查找
-  const cachedResults = packingStore.cachedProducts.filter(product => 
-    product.sku.toLowerCase().includes(productSearch.value.toLowerCase()) ||
-    product.name.toLowerCase().includes(productSearch.value.toLowerCase())
-  )
-
-  if (cachedResults.length > 0) {
-    productList.value = cachedResults
-    searching.value = false
-    return
-  }
-
+// 商品搜索
+async function searchProducts(query: string) {
+  if (!query) return
+  
+  productLoading.value = true
   try {
     const res = await productApi.list({
-      keyword: productSearch.value,
-      pageSize: 10
+      keyword: query,
+      pageSize: 20
     })
-    productList.value = res.items
-    // 缓存搜索结果
-    packingStore.cacheProducts(res.items)
+    productOptions.value = res.items
   } catch (error) {
     console.error('搜索商品失败:', error)
-    ElMessage.error('搜索商品失败')
   } finally {
-    searching.value = false
-    const endTime = performance.now()
-    packingStore.recordPerformance('searchTime', endTime - startTime)
+    productLoading.value = false
   }
 }
 
-// 选择商品
-function handleProductSelect(product: Product) {
-  const existingItem = form.items.find(item => item.productId === product.id)
-  if (existingItem) {
-    ElMessage.warning('该商品已添加')
-    return
+// 商品选择变更
+function handleProductChange(productId: number, item: PackingListItem) {
+  const product = productOptions.value.find(p => p.id === productId)
+  if (product) {
+    item.product = product
   }
+}
 
+// 商品明细操作
+function addItem() {
   form.items.push({
-    productId: product.id,
-    product,
-    quantity: 0,
+    productId: 0,
+    product: {} as Product,
+    quantity: 1,
     boxQuantities: [],
     weight: 0,
     volume: 0
   })
-
-  productDialogVisible.value = false
 }
 
-// 显示商品选择对话框
-function showProductDialog() {
-  productSearch.value = ''
-  productList.value = []
-  productDialogVisible.value = true
-}
-
-// 显示装箱对话框
-function showBoxDialog(item: PackingListItem) {
-  if (!form.boxSpecs.length) {
-    ElMessage.warning('请先添加箱子规格')
-    return
-  }
-
-  currentEditingItem.value = item
-  boxForm.boxNo = ''
-  boxForm.quantity = 1
-  boxDialogVisible.value = true
-}
-
-// 确认装箱数量
-function confirmBoxQuantity() {
-  if (!boxForm.boxNo || !currentEditingItem.value) return
-
-  const existingBox = currentEditingItem.value.boxQuantities.find(
-    box => box.boxNo === boxForm.boxNo
-  )
-
-  if (existingBox) {
-    existingBox.quantity = boxForm.quantity
-  } else {
-    currentEditingItem.value.boxQuantities.push({
-      boxNo: boxForm.boxNo,
-      quantity: boxForm.quantity
-    })
-  }
-
-  boxDialogVisible.value = false
-  calculateItemQuantity(currentEditingItem.value)
-}
-
-// 移除装箱数量
-function removeBoxQuantity(item: PackingListItem, index: number) {
-  item.boxQuantities.splice(index, 1)
-  calculateItemQuantity(item)
-}
-
-// 移除商品
 function removeItem(index: number) {
   form.items.splice(index, 1)
+  calculateTotals()
 }
 
-// 添加箱子规格
+function addBoxQuantity(item: PackingListItem) {
+  item.boxQuantities.push({
+    boxNo: '',
+    quantity: 1
+  })
+}
+
+function removeBoxQuantity(item: PackingListItem, index: number) {
+  item.boxQuantities.splice(index, 1)
+  validateBoxQuantities(item)
+}
+
+// 验证装箱数量
+function validateBoxQuantities(item: PackingListItem) {
+  const total = item.boxQuantities.reduce((sum, box) => sum + box.quantity, 0)
+  if (total !== item.quantity) {
+    ElMessage.warning('装箱数量与总数量不符')
+  }
+  calculateTotals()
+}
+
+// 箱规操作
 function addBoxSpec() {
   form.boxSpecs.push({
     length: 0,
@@ -612,157 +456,158 @@ function addBoxSpec() {
   })
 }
 
-// 移除箱子规格
 function removeBoxSpec(index: number) {
   form.boxSpecs.splice(index, 1)
+  calculateTotals()
 }
 
-// 计算体积
-function calculateVolume(box: BoxSpecs) {
+// 计算箱子体积
+function calculateBoxVolume(box: BoxSpecs) {
   if (box.length && box.width && box.height) {
     // 转换为米
-    const l = box.length / 100
-    const w = box.width / 100
-    const h = box.height / 100
-    box.volume = l * w * h
-    box.edgeVolume = (l + 0.02) * (w + 0.02) * (h + 0.02)
+    box.volume = (box.length * box.width * box.height) / 1000000
+    // 边加一体积
+    box.edgeVolume = ((box.length + 1) * (box.width + 1) * (box.height + 1)) / 1000000
+  }
+  calculateTotals()
+}
+
+// 计算总计
+function calculateTotals() {
+  // 计算箱子总数
+  form.totalBoxes = form.boxSpecs.length
+
+  // 计算总重量
+  form.totalWeight = form.boxSpecs.reduce((sum, box) => sum + (box.weight || 0), 0)
+
+  // 计算总体积
+  form.totalVolume = form.boxSpecs.reduce((sum, box) => sum + (box.volume || 0), 0)
+
+  // 计算总件数
+  form.totalPieces = form.items.reduce((sum, item) => sum + item.quantity, 0)
+
+  // 更新箱子总件数
+  const boxQuantities = form.items.flatMap(item => item.boxQuantities)
+  form.boxSpecs.forEach(box => {
+    box.totalPieces = boxQuantities
+      .filter(bq => bq.boxNo === `${form.boxSpecs.indexOf(box) + 1}#`)
+      .reduce((sum, bq) => sum + bq.quantity, 0)
+  })
+}
+
+// 导入相关
+function handleImport() {
+  importDialogVisible.value = true
+  importFile.value = undefined
+  importProgress.value = 0
+}
+
+function handleFileChange(file: any) {
+  importFile.value = file.raw
+}
+
+function downloadTemplate() {
+  generatePackingListTemplate()
+}
+
+async function confirmImport() {
+  if (!importFile.value) {
+    ElMessage.warning('请选择文件')
+    return
+  }
+
+  importing.value = true
+  importProgress.value = 30
+
+  try {
+    // 验证文件
+    const validation = await validatePackingListExcel(importFile.value)
+    if (!validation.valid) {
+      throw new Error(validation.errors.join('\n'))
+    }
+
+    importProgress.value = 60
+
+    // 导入数据
+    const formData = new FormData()
+    formData.append('file', importFile.value)
+    const res = await packingApi.import(formData)
+
+    importProgress.value = 100
+    ElMessage.success('导入成功')
+    importDialogVisible.value = false
+
+    // 记录导入历史
+    packingStore.addImportHistory({
+      filename: importFile.value.name,
+      success: true
+    })
+
+    // 刷新数据
+    loadData()
+  } catch (error: any) {
+    console.error('导入失败:', error)
+    ElMessage.error('导入失败')
+    // 记录导入历史
+    packingStore.addImportHistory({
+      filename: importFile.value.name,
+      success: false,
+      errors: [error.message]
+    })
+  } finally {
+    importing.value = false
+    importProgress.value = 0
   }
 }
 
-// 计算商品总数量
-function calculateTotalQuantity(boxQuantities: BoxQuantity[]) {
-  return boxQuantities.reduce((sum, box) => sum + box.quantity, 0)
-}
-
-// 计算箱子总件数
-function calculateBoxTotalPieces(box: BoxSpecs) {
-  return form.items.reduce((sum, item) => {
-    const boxQuantity = item.boxQuantities.find(q => q.boxNo === `箱${form.boxSpecs.indexOf(box) + 1}`)
-    return sum + (boxQuantity?.quantity || 0)
-  }, 0)
-}
-
-// 计算商品数量
-function calculateItemQuantity(item: PackingListItem) {
-  item.quantity = calculateTotalQuantity(item.boxQuantities)
-}
-
-// 检查箱子是否被使用
-function hasBoxQuantities(boxIndex: number) {
-  const boxNo = `箱${boxIndex + 1}`
-  return form.items.some(item =>
-    item.boxQuantities.some(box => box.boxNo === boxNo)
-  )
-}
-
-// 提交表单
-async function handleSubmit() {
+// 保存
+async function handleSave() {
   if (!formRef.value) return
 
   try {
     await formRef.value.validate()
     
-    if (!form.items.length) {
-      ElMessage.warning('请添加商品')
-      return
+    // 验证数据
+    if (form.items.length === 0) {
+      throw new Error('请添加商品')
     }
-
-    if (!form.boxSpecs.length) {
-      ElMessage.warning('请添加箱子规格')
-      return
-    }
-
-    const invalidItem = form.items.find(item => !item.boxQuantities.length)
-    if (invalidItem) {
-      ElMessage.warning(`商品 ${invalidItem.product.name} 未添加装箱数量`)
-      return
-    }
-
-    const startTime = performance.now()
-    submitting.value = true
     
+    if (form.boxSpecs.length === 0) {
+      throw new Error('请添加箱规')
+    }
+
+    for (const item of form.items) {
+      if (!item.productId) {
+        throw new Error('请选择商品')
+      }
+      
+      const total = item.boxQuantities.reduce((sum, box) => sum + box.quantity, 0)
+      if (total !== item.quantity) {
+        throw new Error(`商品 ${item.product.sku} 的装箱数量与总数量不符`)
+      }
+    }
+
+    loading.value = true
+    const startTime = Date.now()
+
     if (isEdit.value) {
-      await packingApi.update(Number(route.params.id), form)
-      ElMessage.success('更新成功')
+      await packingApi.update(parseInt(route.params.id as string), form)
     } else {
       await packingApi.create(form)
-      ElMessage.success('创建成功')
-      // 保存为模板
-      packingStore.addTemplate(form)
     }
-    
-    const endTime = performance.now()
-    packingStore.recordPerformance('saveTime', endTime - startTime)
-    
+
+    // 记录性能指标
+    packingStore.recordPerformance('saveTime', Date.now() - startTime)
+
+    ElMessage.success('保存成功')
     router.back()
-  } catch (error) {
+  } catch (error: any) {
     console.error('保存失败:', error)
-    ElMessage.error('保存失败')
+    ElMessage.error(error.message || '保存失败')
   } finally {
-    submitting.value = false
+    loading.value = false
   }
 }
-
-// 添加导入历史对话框组件
-const ImportHistoryDialog = defineComponent({
-  setup() {
-    const history = computed(() => packingStore.importHistory)
-    
-    return () => (
-      <el-dialog
-        modelValue={showImportHistory.value}
-        title="导入历史"
-        width="600px"
-        onUpdate:modelValue={(val: boolean) => showImportHistory.value = val}
-      >
-        <el-table data={history.value} border>
-          <el-table-column prop="filename" label="文件名" />
-          <el-table-column prop="timestamp" label="时间" formatter={(row: any) => 
-            new Date(row.timestamp).toLocaleString()
-          } />
-          <el-table-column prop="success" label="状态">
-            {{
-              default: ({ row }: any) => (
-                <el-tag type={row.success ? 'success' : 'danger'}>
-                  {row.success ? '成功' : '失败'}
-                </el-tag>
-              )
-            }}
-          </el-table-column>
-          <el-table-column label="操作" width="100">
-            {{
-              default: ({ row }: any) => row.errors && (
-                <el-button
-                  link
-                  type="primary"
-                  onClick={() => {
-                    ElMessageBox.alert(row.errors.join('\n'), '错误详情')
-                  }}
-                >
-                  查看错误
-                </el-button>
-              )
-            }}
-          </el-table-column>
-        </el-table>
-      </el-dialog>
-    )
-  }
-})
-
-// 添加导入进度条组件
-const ImportProgress = defineComponent({
-  setup() {
-    return () => importing.value && (
-      <div class="import-progress">
-        <el-progress 
-          percentage={importProgress.value}
-          status={importProgress.value === 100 ? 'success' : ''}
-        />
-      </div>
-    )
-  }
-})
 
 onMounted(() => {
   loadData()
@@ -770,14 +615,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.header-left h2 {
-  margin: 0;
+.mb-4 {
+  margin-bottom: 16px;
 }
 
 .card-header {
@@ -786,36 +625,45 @@ onMounted(() => {
   align-items: center;
 }
 
-.mt-4 {
-  margin-top: 16px;
-}
-
-.dialog-search {
-  margin-bottom: 16px;
-}
-
-.box-quantities {
+.box-quantity {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
-  align-items: center;
+  margin-bottom: 8px;
 }
 
-.import-progress {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 200px;
-  z-index: 2000;
-  background: white;
-  padding: 10px;
+.text-gray {
+  color: #909399;
+  font-size: 12px;
+}
+
+.totals {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #f5f7fa;
   border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
-.header-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+.total-item {
+  display: inline-block;
+  margin-right: 40px;
+}
+
+.total-item:last-child {
+  margin-right: 0;
+}
+
+.total-item .label {
+  margin-right: 8px;
+  color: #606266;
+}
+
+.total-item .value {
+  font-weight: bold;
+  color: #303133;
+}
+
+.upload-demo {
+  text-align: center;
 }
 </style> 

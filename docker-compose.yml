@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   frontend:
     build: 
@@ -31,7 +33,7 @@ services:
 
   backend:
     build:
-      context: ./any-go-python/backend
+      context: ./backend
       dockerfile: Dockerfile
     environment:
       - DEBUG=true
@@ -41,7 +43,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./any-go-python/backend:/app
+      - ./backend:/app
       - ./logs/backend:/app/logs
     depends_on:
       db:

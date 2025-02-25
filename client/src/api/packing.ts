@@ -51,9 +51,7 @@ export default {
   },
 
   // 导入装箱单
-  import(file: File) {
-    const formData = new FormData()
-    formData.append('file', file)
+  import(formData: FormData) {
     return request.post<ImportResult>('/api/packing-lists/import', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'

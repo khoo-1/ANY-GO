@@ -19,17 +19,7 @@ export interface Product {
 export interface PackingListItem {
   id?: number
   productId: number
-  product: {
-    id: number
-    sku: string
-    name: string
-    chineseName: string
-    type: string
-    category?: string
-    cost: number
-    price: number
-    stock: number
-  }
+  product: Product
   quantity: number
   boxQuantities: BoxQuantity[]
   weight: number
@@ -48,6 +38,7 @@ export interface BoxSpecs {
 
 export interface PackingList {
   id?: number
+  code: string
   storeName: string
   type: string
   status: 'pending' | 'approved'
@@ -55,7 +46,6 @@ export interface PackingList {
   totalWeight: number
   totalVolume: number
   totalPieces: number
-  totalValue: number
   remarks?: string
   items: PackingListItem[]
   boxSpecs: BoxSpecs[]
