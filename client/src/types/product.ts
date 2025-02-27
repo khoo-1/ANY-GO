@@ -1,5 +1,4 @@
 export type ProductType = '普货' | '纺织' | '混装'
-export type ProductStatus = 'active' | 'inactive'
 export type StockOperationType = '入库' | '出库' | '调整'
 
 export interface ProductQuery {
@@ -7,8 +6,6 @@ export interface ProductQuery {
   pageSize: number
   keyword?: string
   type?: ProductType
-  category?: string
-  status?: ProductStatus
 }
 
 export interface ProductListResponse {
@@ -16,37 +13,26 @@ export interface ProductListResponse {
   total: number
 }
 
-export interface ProductBase {
+export interface Product {
+  id: number
   sku: string
   name: string
-  chineseName?: string
-  description?: string
   type: ProductType
-  category: string
   price: number
   cost: number
-  weight?: number
-  alertThreshold?: number
-  tags?: string[]
-  status?: ProductStatus
-}
-
-export interface Product extends ProductBase {
-  id: number
   stock: number
-  created_at: string
-  updated_at: string
+  alertThreshold?: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ProductCreateParams {
   sku: string
   name: string
-  chineseName?: string
   type: ProductType
   price: number
   cost: number
   alertThreshold?: number
-  status: ProductStatus
 }
 
 export type ProductUpdateParams = Partial<ProductCreateParams>
@@ -69,6 +55,5 @@ export interface ProductExportRequest {
   ids?: number[]
   keyword?: string
   type?: ProductType
-  status?: ProductStatus
   fields: string[]
 } 

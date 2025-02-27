@@ -20,12 +20,6 @@
           <el-option label="混装" value="混装" />
         </el-select>
       </el-form-item>
-      <el-form-item label="状态">
-        <el-select v-model="searchForm.status" clearable>
-          <el-option label="正常" value="active" />
-          <el-option label="禁用" value="inactive" />
-        </el-select>
-      </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="handleSearch">搜索</el-button>
         <el-button @click="handleReset">重置</el-button>
@@ -42,8 +36,7 @@
       <el-table-column prop="sku" label="SKU" width="120" />
       <el-table-column prop="name" label="商品名称" min-width="200">
         <template #default="{ row }">
-          <div>{{ row.name }}</div>
-          <div class="text-gray">{{ row.chineseName }}</div>
+          {{ row.name }}
         </template>
       </el-table-column>
       <el-table-column prop="type" label="类型" width="100" />
@@ -57,13 +50,6 @@
           <span :class="{ 'text-danger': row.stock <= row.alertThreshold }">
             {{ row.stock }}
           </span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="status" label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 'active' ? 'success' : 'info'">
-            {{ row.status === 'active' ? '正常' : '禁用' }}
-          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
@@ -113,9 +99,6 @@
         <el-form-item label="商品名称" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="中文名称" prop="chineseName">
-          <el-input v-model="form.chineseName" />
-        </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-select v-model="form.type">
             <el-option label="普货" value="普货" />
@@ -131,12 +114,6 @@
         </el-form-item>
         <el-form-item label="库存预警" prop="alertThreshold">
           <el-input-number v-model="form.alertThreshold" :min="0" />
-        </el-form-item>
-        <el-form-item label="状态" prop="status" v-if="dialogType === 'edit'">
-          <el-radio-group v-model="form.status">
-            <el-radio label="active">正常</el-radio>
-            <el-radio label="inactive">禁用</el-radio>
-          </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -203,7 +180,6 @@
           <el-checkbox-group v-model="exportForm.fields">
             <el-checkbox label="sku">SKU</el-checkbox>
             <el-checkbox label="name">商品名称</el-checkbox>
-            <el-checkbox label="chineseName">中文名称</el-checkbox>
             <el-checkbox label="type">类型</el-checkbox>
             <el-checkbox label="price">价格</el-checkbox>
             <el-checkbox label="stock">库存</el-checkbox>
@@ -229,13 +205,12 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import productApi from '@/api/product'
-import type { Product, ProductQuery, ProductType, ProductStatus } from '@/types/product'
+import type { Product, ProductQuery, ProductType } from '@/types/product'
 
 // 搜索表单
 const searchForm = reactive<Partial<ProductQuery>>({
   keyword: '',
-  type: undefined,
-  status: undefined
+  type: undefined
 })
 
 // 表格数据
@@ -254,12 +229,10 @@ const currentProduct = ref<Product>()
 const form = reactive({
   sku: '',
   name: '',
-  chineseName: '',
   type: '普货' as ProductType,
   price: 0,
   cost: 0,
-  alertThreshold: 10,
-  status: 'active' as ProductStatus
+  alertThreshold: 10
 })
 
 // 表单验证规则
@@ -306,20 +279,20 @@ const stockRules = {
 const exportDialogVisible = ref(false)
 const exporting = ref(false)
 const exportForm = reactive({
-  fields: ['sku', 'name', 'chineseName', 'type', 'price', 'stock']
+  fields: ['sku', 'name', 'type', 'price', 'stock']
 })
 
 // 加载数据
 async function loadData() {
   loading.value = true
   try {
-    const { data } = await productApi.list({
+    const response = await productApi.list({
       page: page.value,
       pageSize: pageSize.value,
       ...searchForm
     })
-    tableData.value = data.items
-    total.value = data.total
+    tableData.value = response.items
+    total.value = response.total
   } catch (error) {
     console.error('加载数据失败:', error)
     ElMessage.error('加载数据失败')
@@ -343,7 +316,6 @@ function handleSearch() {
 function handleReset() {
   searchForm.keyword = ''
   searchForm.type = undefined
-  searchForm.status = undefined
   handleSearch()
 }
 
@@ -352,12 +324,10 @@ function handleAdd() {
   dialogType.value = 'add'
   form.sku = ''
   form.name = ''
-  form.chineseName = ''
   form.type = '普货'
   form.price = 0
   form.cost = 0
   form.alertThreshold = 10
-  form.status = 'active'
   dialogVisible.value = true
 }
 
@@ -368,12 +338,10 @@ function handleEdit(row: Product) {
   Object.assign(form, {
     sku: row.sku,
     name: row.name,
-    chineseName: row.chineseName || '',
     type: row.type,
     price: row.price,
     cost: row.cost,
-    alertThreshold: row.alertThreshold || 10,
-    status: row.status
+    alertThreshold: row.alertThreshold || 10
   })
   dialogVisible.value = true
 }
@@ -457,13 +425,13 @@ function showExportDialog() {
 async function handleExport() {
   exporting.value = true
   try {
-    const { data } = await productApi.export({
+    const response = await productApi.export({
       fields: exportForm.fields,
       keyword: searchForm.keyword,
       type: searchForm.type,
       status: searchForm.status
     })
-    const url = window.URL.createObjectURL(new Blob([data]))
+    const url = window.URL.createObjectURL(new Blob([response]))
     const link = document.createElement('a')
     link.href = url
     link.download = `商品列表_${new Date().toLocaleDateString()}.xlsx`
