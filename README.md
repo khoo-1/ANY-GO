@@ -14,7 +14,8 @@ ANY-GO 是一个跨境电商团队协作平台，旨在帮助跨境电商团队�
 
 ### 后端
 - Python FastAPI 框架
-- PostgreSQL 数据库
+- SQLite 数据库 (本地开发)
+- PostgreSQL 数据库 (生产环境)
 - SQLAlchemy ORM
 - JWT 认证
 - Alembic 数据库迁移
@@ -46,6 +47,7 @@ PowerShell -ExecutionPolicy Bypass -File .\start.ps1
 - 同时支持 `.venv` 和 `venv` 两种虚拟环境目录
 - 数据库自动备份和初始化
 - 增强的错误诊断和日志分析
+- 自动编码设置，确保中文正常显示
 
 ## 开发环境设置
 
@@ -91,7 +93,7 @@ pip install -r requirements.txt
 3. 设置环境变量
 创建 `.env` 文件在 `backend` 目录下，并添加以下内容：
 ```
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/any_go
+DATABASE_URL=sqlite:///./app.db
 SECRET_KEY=your-secret-key-here-please-change-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -187,20 +189,29 @@ any-go/
 
 1. **改进的数据库初始化**：
    - 创建了统一的初始化脚本 `init_combined.py`，解决了表创建和用户初始化的顺序问题
+   - 使用直接定义模型的方式，避免动态导入可能带来的问题
    - 添加了手动SQL创建表的备选方案，确保表始终能正确创建
    - 添加详细的日志记录和错误处理
 
-2. **编码问题解决**：
-   - 解决了UTF-8编码问题，确保中文日志正确显示
+2. **数据库诊断工具**：
+   - 新增 `diagnose_db.py` 诊断工具，可以检测SQLAlchemy模型注册、表创建和数据库连接问题
+   - 诊断工具可以提供详细的问题分析和解决方案
+   - 启动脚本集成了诊断工具，在遇到问题时自动提供诊断选项
+
+3. **编码问题解决**：
+   - 解决了Windows系统下的UTF-8编码问题，确保中文日志正确显示
    - 在PowerShell和Python之间正确传递和处理编码
+   - 设置`PYTHONIOENCODING`环境变量，确保Python输出的中文正确显示
 
-3. **数据库备份与恢复**：
+4. **数据库备份与恢复**：
    - 自动备份旧的数据库文件，带有时间戳
-   - 提供数据库诊断工具，可以检查和修复常见问题
+   - 每次启动前验证数据库完整性，发现问题时提供修复选项
+   - 支持手动或自动重新初始化数据库
 
-4. **错误处理与交互**：
+5. **错误处理与交互**：
    - 增强的错误处理流程，提供详细的错误信息
    - 交互式流程，允许用户在关键步骤选择继续或停止
+   - 错误日志记录到文件，方便后续分析
 
 ## 数据库问题排查
 
@@ -209,9 +220,10 @@ any-go/
 ### 1. 数据库表创建问题
 
 如果遇到 "no such table: users" 等错误，可能是因为：
-- SQLAlchemy ORM模型注册问题
+- SQLAlchemy ORM模型注册问题（最常见原因）
 - 表名大小写不一致
 - 编码问题导致SQL执行失败
+- 数据库文件权限问题
 
 **解决方案**：
 1. 运行数据库诊断工具：
@@ -219,18 +231,20 @@ any-go/
    cd backend
    python diagnose_db.py
    ```
+   诊断工具会自动检测并提供解决方案。
 
 2. 使用统一初始化脚本重新创建数据库：
    ```bash
    cd backend
+   # 先删除旧数据库（如果存在）
+   rm app.db
+   # 使用改进的初始化脚本
    python init_combined.py
    ```
 
-3. 如果问题仍然存在，可以尝试手动清除数据库并重新启动：
+3. 通过启动脚本重新初始化：
    ```bash
-   # 删除数据库文件
-   rm backend/app.db
-   # 重新启动服务
+   # 启动脚本会备份旧数据库并尝试初始化
    .\start.ps1
    ```
 
@@ -243,39 +257,62 @@ any-go/
    chcp 65001
    ```
 
-2. 确保Python脚本使用UTF-8编码保存：
-   ```python
-   # 文件开头添加
-   # -*- coding: utf-8 -*-
-   ```
-
-3. 设置环境变量：
+2. 设置环境变量：
    ```powershell
    $env:PYTHONIOENCODING = "utf-8"
    ```
 
-### 3. 自定义排查步骤
+3. 确保所有Python文件使用UTF-8编码保存。
 
-如果仍然遇到问题，可以按照以下步骤进行详细排查：
+### 3. 常见问题快速解决方案
 
-1. **查看日志文件**：
-   - 数据库初始化日志：`backend/db_init_log.txt`
-   - 数据库诊断日志：`backend/db_diagnose_log.txt`
+| 问题 | 解决方案 |
+|------|----------|
+| 提示"no such table: users" | 运行 `python init_combined.py` 重新初始化数据库 |
+| 中文显示乱码 | 运行 `chcp 65001` 设置控制台编码为UTF-8 |
+| 数据库文件损坏 | 删除 `app.db` 后运行 `python init_combined.py` |
+| 启动脚本报错 | 使用 `PowerShell -ExecutionPolicy Bypass -File .\start.ps1` |
+| 诊断工具显示"模型未注册" | 使用新的统一初始化脚本，它避免了模型导入问题 |
 
-2. **检查表结构**：
-   ```sql
-   -- 在SQLite中执行
-   .tables
-   .schema users
+## 高级维护操作
+
+对于开发者和管理员，我们提供以下高级维护操作：
+
+1. **手动备份数据库**：
+   ```bash
+   cd backend
+   # 将数据库备份到指定位置
+   cp app.db db_backup/app.db.backup.$(date +%Y%m%d)
    ```
 
-3. **验证数据库连接**：
-   ```python
-   from app.database import engine
-   with engine.connect() as conn:
-       result = conn.execute("SELECT 1").fetchone()
-       print(result)
+2. **运行完整诊断**：
+   ```bash
+   cd backend
+   # 运行诊断并保存详细日志
+   python diagnose_db.py > diagnostic_report.txt
    ```
+
+3. **完全重置系统**（谨慎使用）：
+   ```bash
+   cd backend
+   # 删除数据库文件
+   rm app.db
+   # 重新初始化
+   python init_combined.py
+   ```
+
+## 更新日志
+
+### v1.1.0 (2023-02-27)
+- 添加了统一的数据库初始化脚本
+- 新增数据库诊断工具
+- 优化了编码处理，解决中文显示问题
+- 改进了启动脚本的错误处理和用户交互
+
+### v1.0.0 (2023-01-15)
+- 初始版本发布
+- 基本用户认证和权限管理
+- 产品和装箱单基础功能
 
 ## 许可证
 
