@@ -15,13 +15,13 @@ async def get_statistics(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """获取仪表盘统计数据"""
-    # TODO: 实现实际的统计逻辑
+    """获取统计数据"""
+    # TODO: 实现实际的统计数据查询逻辑
     return {
-        "totalProducts": 0,
-        "totalPackingLists": 0,
-        "monthSales": 0,
-        "monthProfit": 0
+        "total_sales": 0,
+        "total_profit": 0,
+        "total_products": 0,
+        "total_orders": 0
     }
 
 @router.get("/trends")

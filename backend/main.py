@@ -49,18 +49,19 @@ app = FastAPI(
 # 配置CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5174"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-print(f"CORS配置: 允许的源 = {['http://localhost:5174']}")
+print(f"CORS配置: 允许的源 = {['*']}")
 
-# 注册路由 - 移除prefix，因为已经在router中定义
+# 注册路由
 app.include_router(auth_router)
 app.include_router(products_router, prefix="/api/products", tags=["products"])
 app.include_router(packing_router)
+app.include_router(dashboard_router)  # 添加仪表盘路由
 # 暂时注释掉packing_lists路由注册
 # app.include_router(packing_lists.router, prefix="/api/packing-lists", tags=["packing-lists"])
 
