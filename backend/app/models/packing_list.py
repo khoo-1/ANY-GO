@@ -1,5 +1,6 @@
-from sqlalchemy import Column, String, Enum, Float, Integer, JSON, ForeignKey
+from sqlalchemy import Column, String, Enum, Float, Integer, JSON, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from .base import BaseModel
 from .product import ProductType
 import enum
@@ -37,22 +38,18 @@ class PackingList(BaseModel):
     """装箱单模型"""
     __tablename__ = "packing_lists"
 
-    store_name = Column(String, nullable=False)
-    type = Column(Enum(ProductType), nullable=False)
-    status = Column(Enum(PackingListStatus), default=PackingListStatus.PENDING)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(Text)
+    status = Column(String, default="draft")  # draft, packed, shipped, delivered
+    shipping_method = Column(String)
+    tracking_number = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.id"))
     
-    # 汇总信息
-    total_boxes = Column(Integer, nullable=False)
-    total_weight = Column(Float, nullable=False)
-    total_volume = Column(Float, nullable=False)
-    total_pieces = Column(Integer, nullable=False)
-    total_value = Column(Float, nullable=False)
-    
-    # 备注
-    remarks = Column(String, nullable=True)
-    
-    # 关联
-    items = relationship("PackingListItem", cascade="all, delete-orphan")
+    # 关系
+    items = relationship("PackingItem", back_populates="packing_list", cascade="all, delete-orphan")
     box_specs = relationship("BoxSpecs", cascade="all, delete-orphan")
 
     @classmethod
@@ -75,3 +72,16 @@ class PackingList(BaseModel):
             raise ValueError('无法从文件名中提取店铺名称，请确保文件名格式为："{店铺名}海运ERP.xlsx"')
             
         return store_name
+
+class PackingItem(BaseModel):
+    """装箱单项目模型"""
+    __tablename__ = "packing_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    packing_list_id = Column(Integer, ForeignKey("packing_lists.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Integer, default=1)
+    notes = Column(Text)
+    
+    # 关系
+    packing_list = relationship("PackingList", back_populates="items")

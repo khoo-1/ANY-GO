@@ -35,22 +35,29 @@ const removePending = (config: AxiosRequestConfig) => {
 
 // 创建axios实例
 const request: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
-  timeout: 15000,
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  timeout: 30000,  // 增加超时时间到30秒
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/x-www-form-urlencoded'
   }
 })
 
 // 请求拦截器
 request.interceptors.request.use(
-  (config) => {
-    // 添加token
+  config => {
+    console.log(`发送请求: ${config.url} ${config.method}`)
+    
+    // 对于登录请求，确保使用正确的Content-Type
+    if (config.url === '/api/auth/login' && config.method === 'post') {
+      config.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    }
+    
+    // 添加token到请求头
     const token = localStorage.getItem('token')
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers['Authorization'] = `Bearer ${token}`
     }
-
+    
     // 检查缓存
     if (config.method?.toLowerCase() === 'get') {
       const cacheKey = generateKey(config)
@@ -77,7 +84,8 @@ request.interceptors.request.use(
 
     return config
   },
-  (error) => {
+  error => {
+    console.error('请求错误:', error)
     return Promise.reject(error)
   }
 )
@@ -85,57 +93,40 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   (response: AxiosResponse) => {
+    // 添加调试日志
+    console.log('收到响应:', response.status, response.data)
+    
     // 移除pending中的请求
     removePending(response.config)
 
-    const { data } = response
-    
-    // 缓存GET请求的响应
-    if (response.config.method?.toLowerCase() === 'get') {
-      const cacheKey = generateKey(response.config)
-      cache.set(cacheKey, data)
-    }
-
-    if (data.code === 0) {
-      return data.data
-    } else {
-      ElMessage.error(data.message || '请求失败')
-      return Promise.reject(new Error(data.message || '请求失败'))
-    }
+    // 直接返回响应数据，不再检查code
+    return response.data
   },
   (error) => {
-    // 如果是缓存数据,直接返回
-    if (error.response?.status === 200) {
-      return error.response.data
-    }
-
-    // 移除pending中的请求
-    error.config && removePending(error.config)
-
+    console.error('响应错误:', error)
+    
     if (error.response) {
-      switch (error.response.status) {
-        case 401:
-          ElMessage.error('登录已过期，请重新登录')
-          router.push('/login')
-          break
-        case 403:
-          ElMessage.error('没有权限访问')
-          break
-        case 404:
-          ElMessage.error('请求的资源不存在')
-          break
-        case 500:
-          ElMessage.error('服务器错误')
-          break
-        default:
-          ElMessage.error(error.response.data.message || '请求失败')
+      console.error('错误状态:', error.response.status)
+      console.error('错误数据:', error.response.data)
+      
+      if (error.response.status === 401) {
+        localStorage.removeItem('token')
+        router.push('/login')
       }
-    } else if (error.code === 'ERR_CANCELED') {
-      // 请求被取消,不显示错误
-      return
+      
+      ElMessage.error(
+        error.response.data?.detail || 
+        error.response.data?.message || 
+        '请求失败'
+      )
+    } else if (error.request) {
+      console.error('请求未收到响应:', error.request)
+      ElMessage.error('服务器未响应，请检查网络连接')
     } else {
-      ElMessage.error('网络错误，请检查网络连接')
+      console.error('请求配置错误:', error.message)
+      ElMessage.error('请求配置错误')
     }
+    
     return Promise.reject(error)
   }
 )

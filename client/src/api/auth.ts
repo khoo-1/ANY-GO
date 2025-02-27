@@ -10,13 +10,22 @@ export interface UserCreate {
   password: string
 }
 
+export interface LoginResponse {
+  token: string
+  token_type: string
+}
+
 export default {
   // 用户登录
   login(data: UserLogin) {
     const params = new URLSearchParams()
     params.append('username', data.username)
     params.append('password', data.password)
-    return request.post<{ token: string }>('/auth/login', params, {
+    
+    // 添加调试日志
+    console.log('登录参数:', { username: data.username, password: '***' })
+    
+    return request.post<LoginResponse>('/api/auth/login', params, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
@@ -25,11 +34,11 @@ export default {
 
   // 用户注册
   register(data: UserCreate) {
-    return request.post('/auth/register', data)
+    return request.post('/api/auth/register', data)
   },
 
   // 退出登录
   logout() {
-    return request.post('/auth/logout')
+    return request.post('/api/auth/logout')
   }
 }

@@ -5,10 +5,18 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.models import PackingList, PackingListItem, Product, User
-from app.routers.auth import get_current_active_user
+from app.dependencies import get_current_user
+from app.models import PackingList, PackingItem, Product, User
+from app.schemas.packing_list import (
+    PackingListCreate,
+    PackingListResponse,
+    PackingListUpdate
+)
 
-router = APIRouter(prefix="/api/packing-lists", tags=["装箱单"])
+router = APIRouter(
+    prefix="/api/packing",
+    tags=["packing"]
+)
 
 # 模型定义
 class PackingListItemBase(BaseModel):
@@ -63,7 +71,7 @@ async def get_packing_lists(
     limit: int = 100, 
     status: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """获取装箱单列表"""
     # 检查权限
@@ -89,7 +97,7 @@ async def get_packing_lists(
 async def get_packing_list(
     packing_list_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """获取单个装箱单详情"""
     # 检查权限
@@ -114,7 +122,7 @@ async def get_packing_list(
 async def create_packing_list(
     packing_list: PackingListCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """创建装箱单"""
     # 检查权限
@@ -147,7 +155,7 @@ async def create_packing_list(
                 detail=f"产品ID {item.product_id} 不存在"
             )
         
-        db_item = PackingListItem(
+        db_item = PackingItem(
             packing_list_id=db_packing_list.id,
             product_id=item.product_id,
             quantity=item.quantity,
@@ -166,7 +174,7 @@ async def update_packing_list(
     packing_list_id: int,
     packing_list_update: PackingListUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """更新装箱单"""
     # 检查权限
@@ -208,7 +216,7 @@ async def update_packing_list(
     # 如果提供了新的明细项，则更新
     if packing_list_update.items is not None:
         # 删除现有明细
-        db.query(PackingListItem).filter(PackingListItem.packing_list_id == packing_list_id).delete()
+        db.query(PackingItem).filter(PackingItem.packing_list_id == packing_list_id).delete()
         
         # 添加新明细
         for item in packing_list_update.items:
@@ -221,7 +229,7 @@ async def update_packing_list(
                     detail=f"产品ID {item.product_id} 不存在"
                 )
             
-            db_item = PackingListItem(
+            db_item = PackingItem(
                 packing_list_id=db_packing_list.id,
                 product_id=item.product_id,
                 quantity=item.quantity,
@@ -239,7 +247,7 @@ async def update_packing_list(
 async def delete_packing_list(
     packing_list_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """删除装箱单"""
     # 检查权限
@@ -268,7 +276,7 @@ async def delete_packing_list(
 async def approve_packing_list(
     packing_list_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """审批装箱单"""
     # 检查权限
@@ -299,7 +307,7 @@ async def add_packing_list_item(
     packing_list_id: int,
     item: PackingListItemCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """添加装箱单明细"""
     # 检查权限
@@ -327,7 +335,7 @@ async def add_packing_list_item(
         )
     
     # 创建明细
-    db_item = PackingListItem(
+    db_item = PackingItem(
         packing_list_id=packing_list_id,
         product_id=item.product_id,
         quantity=item.quantity,
@@ -346,7 +354,7 @@ async def update_packing_list_item(
     item_id: int,
     item_update: PackingListItemUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """更新装箱单明细"""
     # 检查权限
@@ -357,9 +365,9 @@ async def update_packing_list_item(
         )
     
     # 查询明细
-    db_item = db.query(PackingListItem).filter(
-        PackingListItem.id == item_id,
-        PackingListItem.packing_list_id == packing_list_id
+    db_item = db.query(PackingItem).filter(
+        PackingItem.id == item_id,
+        PackingItem.packing_list_id == packing_list_id
     ).first()
     
     if db_item is None:
@@ -398,7 +406,7 @@ async def delete_packing_list_item(
     packing_list_id: int,
     item_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_user)
 ):
     """删除装箱单明细"""
     # 检查权限
@@ -409,9 +417,9 @@ async def delete_packing_list_item(
         )
     
     # 查询明细
-    db_item = db.query(PackingListItem).filter(
-        PackingListItem.id == item_id,
-        PackingListItem.packing_list_id == packing_list_id
+    db_item = db.query(PackingItem).filter(
+        PackingItem.id == item_id,
+        PackingItem.packing_list_id == packing_list_id
     ).first()
     
     if db_item is None:

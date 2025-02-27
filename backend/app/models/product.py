@@ -1,44 +1,39 @@
-from sqlalchemy import Column, String, Enum, Float, Integer, Boolean, JSON
-from .base import BaseModel
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Enum
+from sqlalchemy.sql import func
 import enum
 
-class ProductType(str, enum.Enum):
-    NORMAL = "普货"
-    TEXTILE = "纺织"
-    MIXED = "混装"
+from app.database import Base
 
-class ProductStatus(str, enum.Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
+# 添加缺失的枚举类
+class ProductType(enum.Enum):
+    """产品类型枚举"""
+    PHYSICAL = "physical"  # 实物产品
+    DIGITAL = "digital"    # 数字产品
+    SERVICE = "service"    # 服务类产品
 
-class Product(BaseModel):
+class ProductStatus(enum.Enum):
+    """产品状态枚举"""
+    ACTIVE = "active"        # 活跃
+    INACTIVE = "inactive"    # 非活跃
+    DRAFT = "draft"          # 草稿
+    ARCHIVED = "archived"    # 已归档
+
+class Product(Base):
     """产品模型"""
     __tablename__ = "products"
 
-    sku = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=False)
-    chinese_name = Column(String, nullable=True)
-    description = Column(String, nullable=True)
-    category = Column(String, default="未分类")
-    type = Column(Enum(ProductType), nullable=False)
-    
-    # 价格信息
-    price = Column(Float, nullable=False, default=0)
-    cost = Column(Float, nullable=False, default=0)
-    freight_cost = Column(Float, nullable=False, default=0)
-    
-    # 库存信息
-    stock = Column(Integer, nullable=False, default=0)
-    alert_threshold = Column(Integer, nullable=False, default=10)
-    
-    # 其他信息
-    supplier = Column(String, nullable=True)
-    images = Column(JSON, nullable=False, default=list)
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(Text)
+    sku = Column(String, unique=True, index=True)
+    price = Column(Float)
+    weight = Column(Float)
+    dimensions = Column(String)
+    category = Column(String, index=True)
+    tags = Column(String)  # 逗号分隔的标签列表
+    # 添加类型和状态字段
+    type = Column(Enum(ProductType), default=ProductType.PHYSICAL)
     status = Column(Enum(ProductStatus), default=ProductStatus.ACTIVE)
-    
-    # 自动创建标记
-    is_auto_created = Column(Boolean, default=False)
-    needs_completion = Column(Boolean, default=False)
-
-    def __repr__(self):
-        return f"<Product {self.sku}>"
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.id"))

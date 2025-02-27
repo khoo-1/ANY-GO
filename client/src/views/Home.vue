@@ -163,8 +163,8 @@ const initCharts = () => {
 const loadData = async () => {
   try {
     const [statsRes, trendsRes] = await Promise.all([
-      request.get('/dashboard/statistics'),
-      request.get('/dashboard/trends')
+      request.get('/api/dashboard/statistics'),
+      request.get('/api/dashboard/trends')
     ])
     
     statistics.value = statsRes

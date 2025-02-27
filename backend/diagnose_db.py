@@ -339,65 +339,240 @@ except Exception as e:
     log_message(f"手动创建表出错: {e}")
     traceback.print_exc()
 
-# 诊断结论
+# 添加新的修复功能部分
 log_message("\n" + "=" * 50)
-log_message("9. 诊断结论")
+log_message("10. 数据库修复工具")
 log_message("=" * 50)
 
-issues = []
-
-# 检查编码问题
-if sys.stdout.encoding != 'utf-8':
-    issues.append("控制台编码不是UTF-8，中文和特殊字符可能显示乱码")
-
-# 检查数据库连接
-try:
-    with create_engine(app_database_url, echo=False).connect() as conn:
-        pass
-except:
-    issues.append("无法连接到应用数据库")
-
-# 检查模型注册
-if app_base and model_tables:
-    tables_in_metadata = list(getattr(app_base.metadata, 'tables', {}).keys())
-    missing_tables = [t for t in model_tables if t not in tables_in_metadata]
-    if missing_tables:
-        issues.append(f"模型表未正确注册到Base.metadata: {missing_tables}")
-
-# 输出结论
-if issues:
-    log_message("\n发现以下问题:")
-    for i, issue in enumerate(issues, 1):
-        log_message(f"{i}. {issue}")
+def fix_database_issues():
+    """修复数据库问题的函数"""
+    log_message("开始检查数据库问题...")
     
-    log_message("\n解决方案建议:")
+    # 使用应用的数据库URL或默认URL
+    database_url = app_database_url or "sqlite:///./app.db"
+    log_message(f"使用数据库URL: {database_url}")
     
-    # 编码问题解决方案
-    if "控制台编码不是UTF-8" in issues[0]:
-        log_message("1. 编码问题:")
-        log_message("   - 在PowerShell中运行: chcp 65001")
-        log_message("   - 设置环境变量: $env:PYTHONIOENCODING = 'utf-8'")
-        log_message("   - 在脚本开头添加: # -*- coding: utf-8 -*-")
+    try:
+        # 创建数据库引擎
+        engine = create_engine(database_url, echo=False)
+        
+        # 检查数据库连接
+        with engine.connect() as conn:
+            log_message("数据库连接成功 ✓")
+            
+            # 检查表是否存在
+            inspector = inspect(engine)
+            existing_tables = inspector.get_table_names()
+            log_message(f"现有表: {existing_tables}")
+            
+            # 检查users表结构
+            if 'users' in existing_tables:
+                columns = [col['name'] for col in inspector.get_columns('users')]
+                log_message(f"users表列: {columns}")
+                
+                # 检查是否有password列但没有hashed_password列
+                if 'password' in columns and 'hashed_password' not in columns:
+                    log_message("发现问题: users表有password列但没有hashed_password列")
+                    
+                    # 询问用户是否修复
+                    fix_choice = input("是否修复此问题? (y/n): ").lower()
+                    if fix_choice == 'y':
+                        log_message("开始修复users表...")
+                        
+                        # SQLite不支持直接重命名列，需要创建新表
+                        with conn.begin():
+                            # 创建新表
+                            conn.execute(text("""
+                            CREATE TABLE users_new (
+                                id INTEGER PRIMARY KEY,
+                                username VARCHAR NOT NULL,
+                                email VARCHAR NOT NULL,
+                                hashed_password VARCHAR NOT NULL,
+                                full_name VARCHAR,
+                                role VARCHAR,
+                                permissions VARCHAR,
+                                disabled INTEGER DEFAULT 0,
+                                created_at VARCHAR,
+                                updated_at VARCHAR
+                            )
+                            """))
+                            
+                            # 复制数据，将password列的值复制到hashed_password
+                            conn.execute(text("""
+                            INSERT INTO users_new (id, username, email, hashed_password, full_name, role, permissions, disabled, created_at, updated_at)
+                            SELECT id, username, email, password, full_name, role, permissions, disabled, created_at, updated_at FROM users
+                            """))
+                            
+                            # 删除旧表并重命名新表
+                            conn.execute(text("DROP TABLE users"))
+                            conn.execute(text("ALTER TABLE users_new RENAME TO users"))
+                            
+                            log_message("已修复: 将password列重命名为hashed_password ✓")
+                    else:
+                        log_message("用户选择不修复此问题")
+                elif 'hashed_password' not in columns:
+                    log_message("警告: users表缺少hashed_password列")
+                    
+                    # 询问用户是否添加列
+                    fix_choice = input("是否添加hashed_password列? (y/n): ").lower()
+                    if fix_choice == 'y':
+                        log_message("开始添加hashed_password列...")
+                        
+                        # 添加hashed_password列
+                        with conn.begin():
+                            conn.execute(text("ALTER TABLE users ADD COLUMN hashed_password VARCHAR"))
+                            log_message("已添加hashed_password列 ✓")
+                    else:
+                        log_message("用户选择不添加hashed_password列")
+                else:
+                    log_message("users表结构正常 ✓")
+            else:
+                log_message("警告: 未找到users表")
+                
+                # 询问用户是否创建表
+                fix_choice = input("是否创建users表? (y/n): ").lower()
+                if fix_choice == 'y':
+                    log_message("开始创建users表...")
+                    
+                    # 创建users表
+                    with conn.begin():
+                        conn.execute(text("""
+                        CREATE TABLE users (
+                            id INTEGER PRIMARY KEY,
+                            username VARCHAR NOT NULL,
+                            email VARCHAR NOT NULL,
+                            hashed_password VARCHAR NOT NULL,
+                            full_name VARCHAR,
+                            role VARCHAR,
+                            permissions VARCHAR,
+                            disabled INTEGER DEFAULT 0,
+                            created_at VARCHAR,
+                            updated_at VARCHAR
+                        )
+                        """))
+                        
+                        log_message("已创建users表 ✓")
+                        
+                        # 询问是否添加管理员用户
+                        add_admin = input("是否添加管理员用户? (y/n): ").lower()
+                        if add_admin == 'y':
+                            # 从passlib导入密码哈希函数
+                            try:
+                                from passlib.context import CryptContext
+                                pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+                                admin_password = pwd_context.hash("admin123")
+                            except ImportError:
+                                log_message("警告: 未安装passlib，使用明文密码")
+                                admin_password = "admin123"
+                            
+                            # 添加管理员用户
+                            conn.execute(text("""
+                            INSERT INTO users (username, email, hashed_password, full_name, role, permissions, disabled, created_at, updated_at)
+                            VALUES ('admin', 'admin@example.com', :password, 'Administrator', 'admin', '["admin"]', 0, :created_at, :updated_at)
+                            """), {
+                                "password": admin_password,
+                                "created_at": datetime.now().isoformat(),
+                                "updated_at": datetime.now().isoformat()
+                            })
+                            
+                            log_message("已添加管理员用户 ✓")
+                else:
+                    log_message("用户选择不创建users表")
+            
+            # 检查模型与数据库表的一致性
+            if app_base:
+                log_message("\n检查模型与数据库表的一致性...")
+                metadata_tables = list(getattr(app_base.metadata, 'tables', {}).keys())
+                
+                # 比较元数据表与实际表
+                missing_in_db = [t for t in metadata_tables if t not in existing_tables]
+                if missing_in_db:
+                    log_message(f"警告: 以下表在模型中定义但在数据库中不存在: {missing_in_db}")
+                    
+                    # 询问用户是否创建缺失的表
+                    fix_choice = input("是否创建缺失的表? (y/n): ").lower()
+                    if fix_choice == 'y':
+                        log_message("开始创建缺失的表...")
+                        app_base.metadata.create_all(bind=engine, tables=[
+                            app_base.metadata.tables[t] for t in missing_in_db if t in app_base.metadata.tables
+                        ])
+                        log_message("已创建缺失的表 ✓")
+                    else:
+                        log_message("用户选择不创建缺失的表")
+                else:
+                    log_message("所有模型表都存在于数据库中 ✓")
+            
+            # 检查auth.py中的用户验证逻辑
+            log_message("\n检查用户验证逻辑...")
+            try:
+                import importlib
+                
+                # 尝试导入auth模块
+                auth_modules = [
+                    "app.routers.auth",
+                    "app.auth.router",
+                    "app.crud.user"
+                ]
+                
+                auth_issues = []
+                for module_name in auth_modules:
+                    try:
+                        module = importlib.import_module(module_name)
+                        module_src = inspect.getsource(module)
+                        
+                        # 检查是否使用了password而不是hashed_password
+                        if "user.password" in module_src and "verify_password" in module_src:
+                            auth_issues.append(f"模块 {module_name} 中使用了user.password而不是user.hashed_password")
+                    except (ImportError, AttributeError):
+                        pass
+                
+                if auth_issues:
+                    log_message("发现用户验证逻辑问题:")
+                    for issue in auth_issues:
+                        log_message(f"- {issue}")
+                    log_message("请手动修复这些问题，确保所有验证逻辑使用hashed_password字段")
+                else:
+                    log_message("未发现用户验证逻辑问题 ✓")
+            except Exception as e:
+                log_message(f"检查用户验证逻辑时出错: {e}")
     
-    # 模型注册问题解决方案
-    if any("模型表未正确注册" in issue for issue in issues):
-        log_message("2. 模型注册问题:")
-        log_message("   - 确保所有模型都导入自同一个Base类")
-        log_message("   - 避免循环导入问题")
-        log_message("   - 尝试手动创建表结构作为临时解决方案")
-    
-    # 数据库连接问题解决方案
-    if any("无法连接到应用数据库" in issue for issue in issues):
-        log_message("3. 数据库连接问题:")
-        log_message("   - 检查DATABASE_URL是否正确")
-        log_message("   - 确保数据库文件路径可写")
-        log_message("   - 检查SQLite版本兼容性")
+    except Exception as e:
+        log_message(f"修复数据库时出错: {e}")
+        traceback.print_exc()
+
+# 询问用户是否运行修复工具
+run_fix = input("是否运行数据库修复工具? (y/n): ").lower()
+if run_fix == 'y':
+    fix_database_issues()
 else:
-    log_message("诊断未发现明显问题 ✓")
-    log_message("如果仍有问题，建议:")
-    log_message("1. 备份并删除现有数据库文件，重新初始化")
-    log_message("2. 检查应用代码中的表结构定义")
-    log_message("3. 查看应用日志获取更多错误信息")
+    log_message("用户选择不运行修复工具")
+
+# 诊断结论
+log_message("\n" + "=" * 50)
+log_message("11. 最终诊断结论")
+log_message("=" * 50)
+
+# 总结发现的问题
+log_message("发现的问题:")
+for i, issue in enumerate(issues, 1):
+    log_message(f"{i}. {issue}")
+
+# 提供建议
+log_message("\n建议:")
+log_message("1. 数据库连接问题:")
+log_message("   - 确保数据库文件路径正确")
+log_message("   - 检查数据库权限")
+log_message("   - 确保没有其他进程锁定数据库文件")
+
+log_message("2. 模型注册问题:")
+log_message("   - 确保所有模型都导入自同一个Base类")
+log_message("   - 避免循环导入问题")
+log_message("   - 尝试手动创建表结构作为临时解决方案")
+
+log_message("3. 字段名称不匹配问题:")
+log_message("   - 确保模型定义与数据库表结构一致")
+log_message("   - 统一使用hashed_password而不是password")
+log_message("   - 修改所有验证逻辑，确保使用正确的字段名")
 
 log_message("\n" + "=" * 50)
 log_message(f"诊断完成 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

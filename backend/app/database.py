@@ -8,21 +8,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 数据库连接配置
-# 如果环境变量中有 DATABASE_URL，则使用它，否则使用 SQLite
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
-# 如果使用 SQLite，确保 URL 格式正确
+# 创建SQLAlchemy引擎
 if DATABASE_URL.startswith("sqlite"):
-    # SQLite 连接参数
-    connect_args = {"check_same_thread": False}
+    engine = create_engine(
+        DATABASE_URL, connect_args={"check_same_thread": False}
+    )
 else:
-    # PostgreSQL 或其他数据库的连接参数
-    connect_args = {}
-
-# 创建数据库引擎
-engine = create_engine(
-    DATABASE_URL, connect_args=connect_args
-)
+    engine = create_engine(DATABASE_URL)
 
 # 创建会话
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -30,8 +24,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # 创建基类
 Base = declarative_base()
 
-# 获取数据库会话
+# 依赖函数
 def get_db():
+    """获取数据库会话"""
     db = SessionLocal()
     try:
         yield db

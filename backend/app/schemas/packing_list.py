@@ -43,61 +43,51 @@ class BoxSpecs(BaseSchema):
             raise ValueError('边体积必须大于等于实际体积')
         return v
 
-class PackingListItemBase(BaseSchema):
-    """装箱单明细基础模式"""
-    product_id: int = Field(..., gt=0, description="商品ID")
-    quantity: int = Field(..., gt=0, description="数量")
-    box_quantities: List[BoxQuantity] = Field(..., min_items=1, description="装箱数量")
+class PackingItemBase(BaseModel):
+    """装箱单项目基础模型"""
+    product_id: int
+    quantity: int
+    notes: Optional[str] = None
 
-    @validator('box_quantities')
-    def validate_box_quantities(cls, v, values):
-        """验证装箱数量总和是否等于商品总数量"""
-        if 'quantity' in values:
-            total = sum(box.quantity for box in v)
-            if total != values['quantity']:
-                raise ValueError('装箱数量总和必须等于商品总数量')
-        return v
+class PackingItemCreate(PackingItemBase):
+    """创建装箱单项目模型"""
+    pass
 
-class PackingListItem(PackingListItemBase):
-    """装箱单明细"""
+class PackingItem(PackingItemBase):
+    """装箱单项目模型"""
     id: int
-    product: ProductResponse
-    weight: float
-    volume: float
+    packing_list_id: int
+
+    class Config:
+        from_attributes = True
 
 class PackingListBase(BaseSchema):
-    """装箱单基础模式"""
-    store_name: str = Field(..., min_length=2, max_length=50, description="店铺名称")
-    type: str = Field(..., pattern="^(普货|纺织|混装)$", description="类型")
-    remarks: Optional[str] = Field(None, max_length=500, description="备注")
+    """装箱单基础模型"""
+    name: str
+    description: Optional[str] = None
+    status: str = "draft"  # draft, packed, shipped, delivered
+    shipping_method: Optional[str] = None
+    tracking_number: Optional[str] = None
 
 class PackingListCreate(PackingListBase):
-    """创建装箱单"""
-    items: List[PackingListItemBase] = Field(..., min_items=1, description="商品明细")
-    box_specs: List[BoxSpecs] = Field(..., min_items=1, description="箱子规格")
+    """创建装箱单模型"""
+    items: List[PackingItemCreate] = []
 
-    @validator('items')
-    def validate_items(cls, v):
-        """验证商品明细不能为空"""
-        if not v:
-            raise ValueError('商品明细不能为空')
-        return v
+class PackingListUpdate(PackingListBase):
+    """更新装箱单模型"""
+    name: Optional[str] = None
+    items: Optional[List[PackingItemCreate]] = None
 
-    @validator('box_specs')
-    def validate_box_specs(cls, v):
-        """验证箱子规格不能为空"""
-        if not v:
-            raise ValueError('箱子规格不能为空')
-        return v
+class PackingListResponse(PackingListBase):
+    """装箱单响应模型"""
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    created_by: int
+    items: List[PackingItem] = []
 
-class PackingListUpdate(BaseSchema):
-    """更新装箱单"""
-    store_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    type: Optional[str] = Field(None, pattern="^(普货|纺织|混装)$")
-    status: Optional[str] = Field(None, pattern="^(pending|approved)$")
-    remarks: Optional[str] = None
-    items: Optional[List[PackingListItemBase]] = None
-    box_specs: Optional[List[BoxSpecs]] = None
+    class Config:
+        from_attributes = True
 
 class PackingListInDB(PackingListBase):
     """数据库中的装箱单"""
@@ -110,11 +100,6 @@ class PackingListInDB(PackingListBase):
     total_value: float
     created_at: datetime
     updated_at: datetime
-
-class PackingListResponse(PackingListInDB):
-    """装箱单响应"""
-    items: List[PackingListItem]
-    box_specs: List[BoxSpecs]
 
 class PackingListQuery(PageParams):
     """装箱单查询参数"""

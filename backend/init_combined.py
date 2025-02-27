@@ -406,13 +406,13 @@ def init_users(db, engine):
                     username, email, hashed_password, full_name, role, 
                     permissions, disabled, created_at, updated_at
                 ) VALUES (
-                    :username, :email, :password, :fullname, :role, 
+                    :username, :email, :hashed_password, :fullname, :role, 
                     :permissions, :disabled, :created, :updated
                 )
                 """), {
                     "username": "admin",
                     "email": "admin@example.com",
-                    "password": admin_password,
+                    "hashed_password": admin_password,
                     "fullname": "管理员",
                     "role": "admin",
                     "permissions": admin_permissions,
@@ -433,13 +433,13 @@ def init_users(db, engine):
                     username, email, hashed_password, full_name, role, 
                     permissions, disabled, created_at, updated_at
                 ) VALUES (
-                    :username, :email, :password, :fullname, :role, 
+                    :username, :email, :hashed_password, :fullname, :role, 
                     :permissions, :disabled, :created, :updated
                 )
                 """), {
                     "username": "user",
                     "email": "user@example.com",
-                    "password": user_password,
+                    "hashed_password": user_password,
                     "fullname": "普通用户",
                     "role": "user",
                     "permissions": user_permissions,

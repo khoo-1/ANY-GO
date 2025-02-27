@@ -24,17 +24,19 @@ else:
 # 用户模型
 class User(Base):
     __tablename__ = "users"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    username = Column(String, unique=True, nullable=False)
+    email = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False)
     full_name = Column(String)
     role = Column(String)
     permissions = Column(JSONType)
-    disabled = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    disabled = Column(Integer, default=0)
+    created_at = Column(String, default=lambda: datetime.now().isoformat())
+    updated_at = Column(String, default=lambda: datetime.now().isoformat())
+    class Config:
+        from_attributes = True  # 替换原来的 orm_mode = True
 
 class Product(Base):
     __tablename__ = "products"
