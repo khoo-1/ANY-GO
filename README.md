@@ -43,6 +43,7 @@ PowerShell -ExecutionPolicy Bypass -File .\start_enhanced.ps1
 增强版启动脚本具有以下特性：
 - 详细的日志记录（保存在 logs 目录）
 - 自动检查并创建虚拟环境
+- 同时支持 `.venv` 和 `venv` 两种虚拟环境目录
 - 自动安装前后端依赖
 - 优化的服务启动方式
 - 错误诊断和恢复建议
@@ -69,9 +70,18 @@ npm run dev
 1. 创建虚拟环境
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
+# 推荐使用 .venv 作为虚拟环境目录名
+python -m venv .venv  
+# 或者使用标准名称
+# python -m venv venv
+
+# 激活虚拟环境
+.\.venv\Scripts\activate  # Windows (.venv)
+# 或者
+# .\venv\Scripts\activate  # Windows (venv)
+source .venv/bin/activate  # Linux/Mac (.venv)
+# 或者
+# source venv/bin/activate  # Linux/Mac (venv)
 ```
 
 2. 安装依赖
@@ -119,6 +129,14 @@ python main.py
    - 用户名: user
    - 密码: user123
    - 权限: 产品、装箱单、利润和库存的只读权限
+
+## 虚拟环境说明
+
+本项目支持两种虚拟环境目录结构：
+- `.venv`（推荐，遵循 Python 最新推荐实践）
+- `venv`（传统方式）
+
+启动脚本会自动检测这两种目录，优先使用 `.venv` 目录。如果您使用自定义的虚拟环境目录名称，需要手动修改启动脚本。
 
 ## 项目结构
 
@@ -187,9 +205,18 @@ any-go/
 1. 删除并重新创建虚拟环境
 ```bash
 cd backend
-Remove-Item -Recurse -Force venv  # Windows
-rm -rf venv                       # Linux/Mac
-python -m venv venv
+# 删除旧的虚拟环境
+Remove-Item -Recurse -Force .venv  # Windows (.venv)
+# 或
+# Remove-Item -Recurse -Force venv  # Windows (venv)
+rm -rf .venv                       # Linux/Mac (.venv)
+# 或
+# rm -rf venv                       # Linux/Mac (venv)
+
+# 创建新的虚拟环境
+python -m venv .venv  # 推荐
+# 或
+# python -m venv venv
 ```
 
 2. 确认 Python 版本兼容性
@@ -199,8 +226,12 @@ python --version  # 应为 3.8 及以上版本
 
 3. 检查 pip 是否正常工作
 ```bash
-.\venv\Scripts\python.exe -m pip --version  # Windows
-./venv/bin/python -m pip --version         # Linux/Mac
+.\.venv\Scripts\python.exe -m pip --version  # Windows (.venv)
+# 或
+# .\venv\Scripts\python.exe -m pip --version  # Windows (venv)
+./.venv/bin/python -m pip --version         # Linux/Mac (.venv)
+# 或
+# ./venv/bin/python -m pip --version         # Linux/Mac (venv)
 ```
 
 ### 启动服务问题
@@ -215,6 +246,13 @@ python --version  # 应为 3.8 及以上版本
 
 3. 前端服务日志
    - 检查控制台输出
+
+### 编码问题
+
+如果遇到中文显示乱码，可以：
+
+1. 确保所有文件以 UTF-8 with BOM 编码保存
+2. 在 PowerShell 中执行 `chcp 65001` 设置控制台编码为 UTF-8
 
 ## 源代码管理与 GitHub 连接
 
