@@ -190,17 +190,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
-import type { PackingList } from '@/types/packing'
+import type { PackingList, PackingListQuery } from '@/types/packing'
 import packingApi from '@/api/packing'
 
 const router = useRouter()
 
 // 搜索表单
-const searchForm = reactive({
+const searchForm = reactive<PackingListQuery>({
   keyword: '',
   type: '',
   status: '',
@@ -241,22 +241,21 @@ const exportForm = reactive({
   includeProductDetails: true
 })
 
-// 初始化
-onMounted(() => {
-  loadData()
-})
-
 // 加载数据
 async function loadData() {
   loading.value = true
   try {
-    const res = await packingApi.list({
+    const { data } = await packingApi.list({
       page: page.value,
       pageSize: pageSize.value,
-      ...searchForm
+      keyword: searchForm.keyword || undefined,
+      type: searchForm.type || undefined,
+      status: searchForm.status || undefined,
+      startDate: searchForm.startDate || undefined,
+      endDate: searchForm.endDate || undefined
     })
-    tableData.value = res.items
-    total.value = res.total
+    tableData.value = data.items
+    total.value = data.total
   } catch (error) {
     console.error('加载数据失败:', error)
     ElMessage.error('加载数据失败')
@@ -273,13 +272,11 @@ function handleSearch() {
 
 // 重置搜索
 function handleReset() {
-  Object.assign(searchForm, {
-    keyword: '',
-    type: '',
-    status: '',
-    startDate: '',
-    endDate: ''
-  })
+  searchForm.keyword = ''
+  searchForm.type = ''
+  searchForm.status = ''
+  searchForm.startDate = ''
+  searchForm.endDate = ''
   handleSearch()
 }
 
@@ -304,9 +301,8 @@ async function handleApprove(row: PackingList) {
     await packingApi.approve(row.id!)
     ElMessage.success('审核成功')
     loadData()
-  } catch (error) {
-    console.error('审核失败:', error)
-    ElMessage.error('审核失败')
+  } catch (error: any) {
+    ElMessage.error(error.message || '审核失败')
   }
 }
 
@@ -319,9 +315,8 @@ async function handleDelete(row: PackingList) {
       page.value--
     }
     loadData()
-  } catch (error) {
-    console.error('删除失败:', error)
-    ElMessage.error('删除失败')
+  } catch (error: any) {
+    ElMessage.error(error.message || '删除失败')
   }
 }
 
@@ -331,7 +326,7 @@ function handleImport() {
   importFile.value = undefined
 }
 
-// 文件选择改变
+// 文件选择
 function handleFileChange(file: any) {
   importFile.value = file.raw
 }
@@ -342,17 +337,14 @@ async function handleImportSubmit() {
   
   importing.value = true
   try {
-    const res = await packingApi.import(importFile.value)
-    if (res.success) {
-      ElMessage.success(`导入成功，成功导入 ${res.created} 条记录`)
-      importDialogVisible.value = false
-      loadData()
-    } else {
-      ElMessage.error(res.message)
-    }
-  } catch (error) {
-    console.error('导入失败:', error)
-    ElMessage.error('导入失败')
+    const formData = new FormData()
+    formData.append('file', importFile.value)
+    await packingApi.import(formData)
+    ElMessage.success('导入成功')
+    importDialogVisible.value = false
+    loadData()
+  } catch (error: any) {
+    ElMessage.error(error.message || '导入失败')
   } finally {
     importing.value = false
   }
@@ -367,12 +359,11 @@ function showExportDialog() {
 async function handleExport() {
   exporting.value = true
   try {
-    const selectedIds = tableData.value.map(item => item.id!)
-    const blob = await packingApi.export({
-      ids: selectedIds,
+    const { data } = await packingApi.export({
+      ids: [],
       ...exportForm
     })
-    const url = window.URL.createObjectURL(blob)
+    const url = window.URL.createObjectURL(new Blob([data]))
     const link = document.createElement('a')
     link.href = url
     link.download = `装箱单_${new Date().toLocaleDateString()}.xlsx`
@@ -381,9 +372,8 @@ async function handleExport() {
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
     exportDialogVisible.value = false
-  } catch (error) {
-    console.error('导出失败:', error)
-    ElMessage.error('导出失败')
+  } catch (error: any) {
+    ElMessage.error(error.message || '导出失败')
   } finally {
     exporting.value = false
   }
@@ -399,6 +389,11 @@ function handleCurrentChange(val: number) {
   page.value = val
   loadData()
 }
+
+// 初始化
+onMounted(() => {
+  loadData()
+})
 </script>
 
 <style scoped>

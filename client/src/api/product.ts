@@ -72,12 +72,7 @@ export default {
   },
 
   // 获取商品类别列表
-  getCategories() {
-    return request.get<string[]>('/api/products/categories')
-  },
-
-  // 获取供应商列表
-  getSuppliers() {
-    return request.get<string[]>('/api/products/suppliers')
+  getCategories(params?: { type?: string }) {
+    return request.get<string[]>('/api/products/categories', { params })
   }
 } 

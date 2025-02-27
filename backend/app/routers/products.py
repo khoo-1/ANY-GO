@@ -20,7 +20,6 @@ class ProductBase(BaseModel):
     weight: Optional[float] = None
     stock: int = 0
     category: Optional[str] = None
-    supplier: Optional[str] = None
     tags: List[str] = []
 
 class ProductCreate(ProductBase):
@@ -46,7 +45,6 @@ fake_products = [
         "weight": 0.05,
         "stock": 100,
         "category": "电子产品",
-        "supplier": "科技供应商A",
         "tags": ["智能穿戴", "电子产品", "热销"],
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
@@ -61,7 +59,6 @@ fake_products = [
         "weight": 0.3,
         "stock": 150,
         "category": "电子产品",
-        "supplier": "音频设备供应商B",
         "tags": ["音频设备", "电子产品", "户外"],
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
@@ -76,7 +73,6 @@ fake_products = [
         "weight": 1.2,
         "stock": 80,
         "category": "厨房用品",
-        "supplier": "家居用品供应商C",
         "tags": ["厨房用品", "家居", "套装"],
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
@@ -84,15 +80,18 @@ fake_products = [
 ]
 
 # 路由定义
-@router.get("/", response_model=List[Product])
+@router.get("/", response_model=dict)
 async def get_products(
-    skip: int = 0, 
-    limit: int = 100, 
+    page: int = 1,
+    pageSize: int = 20,
+    keyword: str = "",
+    type: str = None,
     category: Optional[str] = None,
+    status: str = None,
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    获取产品列表，支持分页和按类别筛选
+    获取产品列表，支持分页和筛选
     """
     # 检查权限
     if "products:read" not in current_user.permissions:
@@ -101,14 +100,39 @@ async def get_products(
             detail="没有足够的权限访问此资源"
         )
     
+    # 计算分页参数
+    skip = (page - 1) * pageSize
+    limit = pageSize
+    
     # 筛选产品
+    filtered_products = fake_products
+    
+    if keyword:
+        keyword = keyword.lower()
+        filtered_products = [
+            p for p in filtered_products 
+            if keyword in p["sku"].lower() or keyword in p["name"].lower()
+        ]
+    
+    if type:
+        filtered_products = [p for p in filtered_products if p.get("type") == type]
+    
     if category:
-        filtered_products = [p for p in fake_products if p["category"] == category]
-    else:
-        filtered_products = fake_products
+        filtered_products = [p for p in filtered_products if p["category"] == category]
+        
+    if status:
+        filtered_products = [p for p in filtered_products if p.get("status") == status]
+    
+    # 计算总数
+    total = len(filtered_products)
     
     # 分页
-    return filtered_products[skip : skip + limit]
+    paginated_products = filtered_products[skip : skip + limit]
+    
+    return {
+        "items": paginated_products,
+        "total": total
+    }
 
 @router.get("/{product_id}", response_model=Product)
 async def get_product(
@@ -220,4 +244,20 @@ async def delete_product(
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="产品不存在"
-    ) 
+    )
+
+@router.get("/categories", response_model=List[str])
+async def get_categories(current_user: User = Depends(get_current_active_user)):
+    """
+    获取所有商品分类列表
+    """
+    # 检查权限
+    if "products:read" not in current_user.permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="没有足够的权限访问此资源"
+        )
+    
+    # 从产品数据中提取唯一的分类列表
+    categories = list(set(p["category"] for p in fake_products if p["category"]))
+    return categories 

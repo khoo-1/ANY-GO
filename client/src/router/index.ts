@@ -21,7 +21,8 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'products',
         name: 'products',
-        component: () => import('../views/products/ProductList.vue')
+        component: () => import('../views/products/ProductList.vue'),
+        meta: { title: '商品管理', icon: 'Goods' }
       },
       {
         path: 'packing-lists',

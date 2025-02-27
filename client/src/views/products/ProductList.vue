@@ -20,16 +20,6 @@
           <el-option label="混装" value="混装" />
         </el-select>
       </el-form-item>
-      <el-form-item label="分类">
-        <el-select v-model="searchForm.category" clearable>
-          <el-option 
-            v-for="category in categories" 
-            :key="category" 
-            :label="category" 
-            :value="category" 
-          />
-        </el-select>
-      </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="searchForm.status" clearable>
           <el-option label="正常" value="active" />
@@ -57,7 +47,6 @@
         </template>
       </el-table-column>
       <el-table-column prop="type" label="类型" width="100" />
-      <el-table-column prop="category" label="分类" width="120" />
       <el-table-column prop="price" label="价格" width="100">
         <template #default="{ row }">
           {{ row.price.toFixed(2) }}
@@ -96,8 +85,8 @@
     <!-- 分页 -->
     <div class="pagination-container">
       <el-pagination
-        v-model:current-page="page"
-        v-model:page-size="pageSize"
+        :current-page="page"
+        :page-size="pageSize"
         :total="total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next"
@@ -134,21 +123,6 @@
             <el-option label="混装" value="混装" />
           </el-select>
         </el-form-item>
-        <el-form-item label="分类" prop="category">
-          <el-select 
-            v-model="form.category"
-            filterable
-            allow-create
-            default-first-option
-          >
-            <el-option
-              v-for="category in categories"
-              :key="category"
-              :label="category"
-              :value="category"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="价格" prop="price">
           <el-input-number v-model="form.price" :precision="2" :min="0" />
         </el-form-item>
@@ -157,22 +131,6 @@
         </el-form-item>
         <el-form-item label="库存预警" prop="alertThreshold">
           <el-input-number v-model="form.alertThreshold" :min="0" />
-        </el-form-item>
-        <el-form-item label="供应商" prop="supplier">
-          <el-select
-            v-model="form.supplier"
-            filterable
-            allow-create
-            default-first-option
-            clearable
-          >
-            <el-option
-              v-for="supplier in suppliers"
-              :key="supplier"
-              :label="supplier"
-              :value="supplier"
-            />
-          </el-select>
         </el-form-item>
         <el-form-item label="状态" prop="status" v-if="dialogType === 'edit'">
           <el-radio-group v-model="form.status">
@@ -247,11 +205,8 @@
             <el-checkbox label="name">商品名称</el-checkbox>
             <el-checkbox label="chineseName">中文名称</el-checkbox>
             <el-checkbox label="type">类型</el-checkbox>
-            <el-checkbox label="category">分类</el-checkbox>
             <el-checkbox label="price">价格</el-checkbox>
-            <el-checkbox label="cost">成本</el-checkbox>
             <el-checkbox label="stock">库存</el-checkbox>
-            <el-checkbox label="supplier">供应商</el-checkbox>
           </el-checkbox-group>
         </el-form-item>
       </el-form>
@@ -270,65 +225,59 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
-import { searchProducts, exportProducts } from '@/api/product'
-import { ElMessage, ElMessageBox, FormInstance } from 'element-plus'
-import type { Product } from '@/types/product'
-import { ElVirtualList } from 'element-plus'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import type { FormInstance } from 'element-plus'
 import productApi from '@/api/product'
+import type { Product, ProductQuery, ProductType, ProductStatus } from '@/types/product'
 
 // 搜索表单
-const searchForm = reactive({
+const searchForm = reactive<Partial<ProductQuery>>({
   keyword: '',
-  type: '',
-  category: '',
-  status: '',
-  page: 1,
-  pageSize: 20
+  type: undefined,
+  status: undefined
 })
 
 // 表格数据
-const tableData = ref<Product[]>([])
-const total = ref(0)
 const loading = ref(false)
-
-// 类别和供应商列表
-const categories = ref<string[]>([])
-const suppliers = ref<string[]>([])
+const tableData = ref<Product[]>([])
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 
 // 商品表单对话框
 const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+const currentProduct = ref<Product>()
 const form = reactive({
   sku: '',
   name: '',
   chineseName: '',
-  type: '普货',
-  category: '',
+  type: '普货' as ProductType,
   price: 0,
   cost: 0,
   alertThreshold: 10,
-  supplier: '',
-  status: 'active'
+  status: 'active' as ProductStatus
 })
 
 // 表单验证规则
 const rules = {
   sku: [
     { required: true, message: '请输入SKU', trigger: 'blur' },
-    { min: 3, max: 50, message: 'SKU长度在3-50个字符之间', trigger: 'blur' }
+    { min: 3, max: 20, message: 'SKU长度应在3-20个字符之间', trigger: 'blur' }
   ],
   name: [
     { required: true, message: '请输入商品名称', trigger: 'blur' },
-    { min: 1, max: 200, message: '商品名称长度在1-200个字符之间', trigger: 'blur' }
+    { min: 2, max: 100, message: '商品名称长度应在2-100个字符之间', trigger: 'blur' }
   ],
   type: [
     { required: true, message: '请选择商品类型', trigger: 'change' }
   ],
   price: [
-    { required: true, message: '请输入商品价格', trigger: 'blur' }
+    { required: true, message: '请输入商品价格', trigger: 'blur' },
+    { type: 'number', min: 0, message: '价格不能小于0', trigger: 'blur' }
   ]
 }
 
@@ -336,7 +285,6 @@ const rules = {
 const stockDialogVisible = ref(false)
 const stockSubmitting = ref(false)
 const stockFormRef = ref<FormInstance>()
-const currentProduct = ref<Product>()
 const stockForm = reactive({
   type: '入库',
   quantity: 1,
@@ -358,47 +306,20 @@ const stockRules = {
 const exportDialogVisible = ref(false)
 const exporting = ref(false)
 const exportForm = reactive({
-  fields: ['sku', 'name', 'chineseName', 'type', 'category', 'price', 'stock']
+  fields: ['sku', 'name', 'chineseName', 'type', 'price', 'stock']
 })
 
-// 初始化
-onMounted(async () => {
-  await Promise.all([
-    loadCategories(),
-    loadSuppliers()
-  ])
-  await loadData()
-})
-
-// 加载类别列表
-async function loadCategories() {
-  try {
-    categories.value = await productApi.getCategories()
-  } catch (error) {
-    console.error('加载类别列表失败:', error)
-  }
-}
-
-// 加载供应商列表
-async function loadSuppliers() {
-  try {
-    suppliers.value = await productApi.getSuppliers()
-  } catch (error) {
-    console.error('加载供应商列表失败:', error)
-  }
-}
-
-// 加载表格数据
+// 加载数据
 async function loadData() {
   loading.value = true
   try {
-    const res = await productApi.list({
-      page: searchForm.page,
-      pageSize: searchForm.pageSize,
+    const { data } = await productApi.list({
+      page: page.value,
+      pageSize: pageSize.value,
       ...searchForm
     })
-    tableData.value = res.items
-    total.value = res.total
+    tableData.value = data.items
+    total.value = data.total
   } catch (error) {
     console.error('加载数据失败:', error)
     ElMessage.error('加载数据失败')
@@ -407,54 +328,51 @@ async function loadData() {
   }
 }
 
+// 初始化
+onMounted(async () => {
+  await loadData()
+})
+
 // 搜索
 function handleSearch() {
-  searchForm.page = 1
+  page.value = 1
   loadData()
 }
 
 // 重置搜索
 function handleReset() {
-  Object.assign(searchForm, {
-    keyword: '',
-    type: '',
-    category: '',
-    status: ''
-  })
+  searchForm.keyword = ''
+  searchForm.type = undefined
+  searchForm.status = undefined
   handleSearch()
 }
 
 // 新增商品
 function handleAdd() {
   dialogType.value = 'add'
-  Object.assign(form, {
-    sku: '',
-    name: '',
-    chineseName: '',
-    type: '普货',
-    category: '',
-    price: 0,
-    cost: 0,
-    alertThreshold: 10,
-    supplier: '',
-    status: 'active'
-  })
+  form.sku = ''
+  form.name = ''
+  form.chineseName = ''
+  form.type = '普货'
+  form.price = 0
+  form.cost = 0
+  form.alertThreshold = 10
+  form.status = 'active'
   dialogVisible.value = true
 }
 
 // 编辑商品
 function handleEdit(row: Product) {
   dialogType.value = 'edit'
+  currentProduct.value = row
   Object.assign(form, {
     sku: row.sku,
     name: row.name,
-    chineseName: row.chineseName,
+    chineseName: row.chineseName || '',
     type: row.type,
-    category: row.category,
     price: row.price,
     cost: row.cost,
-    alertThreshold: row.alertThreshold,
-    supplier: row.supplier,
+    alertThreshold: row.alertThreshold || 10,
     status: row.status
   })
   dialogVisible.value = true
@@ -464,25 +382,26 @@ function handleEdit(row: Product) {
 async function handleSubmit() {
   if (!formRef.value) return
   
-  await formRef.value.validate()
-  
-  submitting.value = true
-  try {
-    if (dialogType.value === 'add') {
-      await productApi.create(form)
-      ElMessage.success('创建成功')
-    } else {
-      await productApi.update(Number(currentProduct.value?.id), form)
-      ElMessage.success('更新成功')
+  await formRef.value.validate(async (valid) => {
+    if (valid) {
+      submitting.value = true
+      try {
+        if (dialogType.value === 'add') {
+          await productApi.create(form)
+          ElMessage.success('创建成功')
+        } else if (currentProduct.value?.id) {
+          await productApi.update(currentProduct.value.id, form)
+          ElMessage.success('更新成功')
+        }
+        dialogVisible.value = false
+        loadData()
+      } catch (error: any) {
+        ElMessage.error(error.message || '操作失败')
+      } finally {
+        submitting.value = false
+      }
     }
-    dialogVisible.value = false
-    loadData()
-  } catch (error) {
-    console.error('提交失败:', error)
-    ElMessage.error('提交失败')
-  } finally {
-    submitting.value = false
-  }
+  })
 }
 
 // 删除商品
@@ -490,24 +409,21 @@ async function handleDelete(row: Product) {
   try {
     await productApi.delete(row.id)
     ElMessage.success('删除成功')
-    if (tableData.value.length === 1 && searchForm.page > 1) {
-      searchForm.page--
+    if (tableData.value.length === 1 && page.value > 1) {
+      page.value--
     }
     loadData()
-  } catch (error) {
-    console.error('删除失败:', error)
-    ElMessage.error('删除失败')
+  } catch (error: any) {
+    ElMessage.error(error.message || '删除失败')
   }
 }
 
 // 库存操作
 function handleStock(row: Product) {
   currentProduct.value = row
-  Object.assign(stockForm, {
-    type: '入库',
-    quantity: 1,
-    reason: ''
-  })
+  stockForm.type = '入库'
+  stockForm.quantity = 1
+  stockForm.reason = ''
   stockDialogVisible.value = true
 }
 
@@ -515,20 +431,21 @@ function handleStock(row: Product) {
 async function handleStockSubmit() {
   if (!stockFormRef.value || !currentProduct.value) return
   
-  await stockFormRef.value.validate()
-  
-  stockSubmitting.value = true
-  try {
-    await productApi.updateStock(currentProduct.value.id, stockForm)
-    ElMessage.success('操作成功')
-    stockDialogVisible.value = false
-    loadData()
-  } catch (error) {
-    console.error('操作失败:', error)
-    ElMessage.error('操作失败')
-  } finally {
-    stockSubmitting.value = false
-  }
+  await stockFormRef.value.validate(async (valid) => {
+    if (valid) {
+      stockSubmitting.value = true
+      try {
+        await productApi.updateStock(currentProduct.value.id, stockForm)
+        ElMessage.success('操作成功')
+        stockDialogVisible.value = false
+        loadData()
+      } catch (error: any) {
+        ElMessage.error(error.message || '操作失败')
+      } finally {
+        stockSubmitting.value = false
+      }
+    }
+  })
 }
 
 // 显示导出对话框
@@ -540,11 +457,13 @@ function showExportDialog() {
 async function handleExport() {
   exporting.value = true
   try {
-    const blob = await productApi.export({
-      ...searchForm,
-      fields: exportForm.fields
+    const { data } = await productApi.export({
+      fields: exportForm.fields,
+      keyword: searchForm.keyword,
+      type: searchForm.type,
+      status: searchForm.status
     })
-    const url = window.URL.createObjectURL(blob)
+    const url = window.URL.createObjectURL(new Blob([data]))
     const link = document.createElement('a')
     link.href = url
     link.download = `商品列表_${new Date().toLocaleDateString()}.xlsx`
@@ -553,9 +472,8 @@ async function handleExport() {
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
     exportDialogVisible.value = false
-  } catch (error) {
-    console.error('导出失败:', error)
-    ElMessage.error('导出失败')
+  } catch (error: any) {
+    ElMessage.error(error.message || '导出失败')
   } finally {
     exporting.value = false
   }
@@ -563,12 +481,12 @@ async function handleExport() {
 
 // 分页
 function handleSizeChange(val: number) {
-  searchForm.pageSize = val
+  pageSize.value = val
   loadData()
 }
 
 function handleCurrentChange(val: number) {
-  searchForm.page = val
+  page.value = val
   loadData()
 }
 </script>

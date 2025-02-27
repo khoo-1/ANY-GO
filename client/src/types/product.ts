@@ -1,76 +1,55 @@
 export type ProductType = '普货' | '纺织' | '混装'
 export type ProductStatus = 'active' | 'inactive'
-
-export interface Product {
-  id: number
-  sku: string
-  name: string
-  chineseName: string
-  description?: string
-  category: string
-  type: ProductType
-  price: number
-  cost: number
-  stock: number
-  alertThreshold: number
-  supplier?: string
-  images: string[]
-  status: ProductStatus
-  isAutoCreated: boolean
-  needsCompletion: boolean
-  createdAt: string
-  updatedAt: string
-}
+export type StockOperationType = '入库' | '出库' | '调整'
 
 export interface ProductQuery {
-  page?: number
-  pageSize?: number
+  page: number
+  pageSize: number
   keyword?: string
   type?: ProductType
   category?: string
   status?: ProductStatus
-  showAutoCreated?: boolean
-  needsCompletion?: boolean
-  minStock?: number
-  maxStock?: number
 }
 
 export interface ProductListResponse {
   items: Product[]
   total: number
-  page: number
-  pageSize: number
+}
+
+export interface ProductBase {
+  sku: string
+  name: string
+  chineseName?: string
+  description?: string
+  type: ProductType
+  category: string
+  price: number
+  cost: number
+  weight?: number
+  alertThreshold?: number
+  tags?: string[]
+  status?: ProductStatus
+}
+
+export interface Product extends ProductBase {
+  id: number
+  stock: number
+  created_at: string
+  updated_at: string
 }
 
 export interface ProductCreateParams {
   sku: string
   name: string
   chineseName?: string
-  description?: string
-  category?: string
   type: ProductType
   price: number
-  cost?: number
+  cost: number
   alertThreshold?: number
-  supplier?: string
-  images?: string[]
+  status: ProductStatus
 }
 
-export interface ProductUpdateParams {
-  name?: string
-  chineseName?: string
-  description?: string
-  category?: string
-  type?: ProductType
-  price?: number
-  cost?: number
-  stock?: number
-  alertThreshold?: number
-  supplier?: string
-  images?: string[]
-  status?: ProductStatus
-  needsCompletion?: boolean
-}
+export type ProductUpdateParams = Partial<ProductCreateParams>
 
 export interface BatchCreateProduct {
   products: ProductCreateParams[]
@@ -81,17 +60,15 @@ export interface BatchDeleteProduct {
 }
 
 export interface UpdateStockRequest {
+  type: 'in' | 'out'
   quantity: number
-  type: '入库' | '出库' | '调整'
   reason?: string
 }
 
 export interface ProductExportRequest {
+  ids?: number[]
   keyword?: string
   type?: ProductType
-  category?: string
-  minPrice?: number
-  maxPrice?: number
-  inStock?: boolean
-  fields?: string[]
+  status?: ProductStatus
+  fields: string[]
 } 

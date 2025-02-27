@@ -50,7 +50,6 @@ class Product(Base):
     weight = Column(Float, nullable=True)
     stock = Column(Integer, default=0)
     category = Column(String, nullable=True)
-    supplier = Column(String, nullable=True)
     tags = Column(JSONType, default=list)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

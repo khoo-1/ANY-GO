@@ -59,7 +59,7 @@ print(f"CORS配置: 允许的源 = {['*']}")
 
 # 注册路由
 app.include_router(auth_router)
-app.include_router(products_router, prefix="/api/products", tags=["products"])
+app.include_router(products_router)  # 移除重复的前缀，因为router已经定义了前缀
 app.include_router(packing_router)
 app.include_router(dashboard_router)  # 添加仪表盘路由
 # 暂时注释掉packing_lists路由注册
