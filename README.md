@@ -30,23 +30,22 @@ ANY-GO 是一个跨境电商团队协作平台，旨在帮助跨境电商团队�
 
 ## 快速启动
 
-为了简化开发环境设置，我们提供了一个增强版的启动脚本，可以自动检查和准备环境，并启动前后端服务。
+我们提供了一个简单的一键启动脚本，可以自动检查和准备环境，并启动前后端服务。
 
 ```bash
 # Windows
-.\start_enhanced.ps1
+.\start.ps1
 
 # 如果遇到执行策略限制，可以使用以下命令暂时放行
-PowerShell -ExecutionPolicy Bypass -File .\start_enhanced.ps1
+PowerShell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
-增强版启动脚本具有以下特性：
-- 详细的日志记录（保存在 logs 目录）
+启动脚本具有以下特性：
+- 详细的日志记录（保存在backend目录下）
 - 自动检查并创建虚拟环境
 - 同时支持 `.venv` 和 `venv` 两种虚拟环境目录
-- 自动安装前后端依赖
-- 优化的服务启动方式
-- 错误诊断和恢复建议
+- 数据库自动备份和初始化
+- 增强的错误诊断和日志分析
 
 ## 开发环境设置
 
@@ -102,7 +101,10 @@ DEBUG=true
 
 4. 初始化数据库
 ```bash
-python init_db.py  # 注意：使用根目录的脚本，不要使用 scripts 目录中的脚本
+python init_combined.py  # 使用统一初始化脚本
+# 或者分开执行
+# python init_db.py
+# python init_users.py
 ```
 
 5. 启动服务器
@@ -167,115 +169,113 @@ any-go/
 │   │   ├── schemas/         # 数据验证模式
 │   │   ├── services/        # 服务层
 │   │   └── utils/           # 工具函数
-│   ├── scripts/             # 脚本 (精简后)
+│   ├── db_backup/           # 数据库备份目录
 │   ├── main.py              # 主程序
-│   ├── init_db.py           # 数据库初始化
-│   ├── init_users.py        # 用户初始化
+│   ├── init_combined.py     # 统一的数据库初始化脚本
+│   ├── init_db.py           # 数据库表初始化脚本
+│   ├── init_users.py        # 用户初始化脚本
+│   ├── diagnose_db.py       # 数据库诊断工具
 │   └── requirements.txt     # 依赖配置
 │
-├── logs/                    # 日志目录
-├── start_enhanced.ps1       # 增强版启动脚本
-├── clean_duplicate_files.py # 重复文件清理脚本
+├── start.ps1                # 一键启动脚本
 └── README.md                # 项目说明
 ```
 
 ## 项目优化
 
-我们最近对项目结构进行了以下优化：
+我们最近对项目进行了以下优化：
 
-1. 清理了重复功能的文件：
-   - 移除了 `backend/scripts/` 目录下与根目录功能重复的脚本
-   - 统一使用根目录的初始化脚本
+1. **改进的数据库初始化**：
+   - 创建了统一的初始化脚本 `init_combined.py`，解决了表创建和用户初始化的顺序问题
+   - 添加了手动SQL创建表的备选方案，确保表始终能正确创建
+   - 添加详细的日志记录和错误处理
 
-2. 改进了启动流程：
-   - 创建了更强大的 `start_enhanced.ps1` 脚本
-   - 添加了详细的日志记录
-   - 增加了环境检查和自动修复功能
+2. **编码问题解决**：
+   - 解决了UTF-8编码问题，确保中文日志正确显示
+   - 在PowerShell和Python之间正确传递和处理编码
 
-3. 模型定义整合建议：
-   - 推荐使用模块化方式组织模型
-   - 将 `backend/app/models.py` 中的模型拆分到 `backend/app/models/` 目录下
+3. **数据库备份与恢复**：
+   - 自动备份旧的数据库文件，带有时间戳
+   - 提供数据库诊断工具，可以检查和修复常见问题
 
-## 常见问题排查
+4. **错误处理与交互**：
+   - 增强的错误处理流程，提供详细的错误信息
+   - 交互式流程，允许用户在关键步骤选择继续或停止
 
-### 虚拟环境问题
+## 数据库问题排查
 
-如果遇到虚拟环境相关问题，可以尝试以下步骤：
+如果遇到数据库相关的问题，可以使用我们提供的诊断工具和解决方案：
 
-1. 删除并重新创建虚拟环境
-```bash
-cd backend
-# 删除旧的虚拟环境
-Remove-Item -Recurse -Force .venv  # Windows (.venv)
-# 或
-# Remove-Item -Recurse -Force venv  # Windows (venv)
-rm -rf .venv                       # Linux/Mac (.venv)
-# 或
-# rm -rf venv                       # Linux/Mac (venv)
+### 1. 数据库表创建问题
 
-# 创建新的虚拟环境
-python -m venv .venv  # 推荐
-# 或
-# python -m venv venv
-```
+如果遇到 "no such table: users" 等错误，可能是因为：
+- SQLAlchemy ORM模型注册问题
+- 表名大小写不一致
+- 编码问题导致SQL执行失败
 
-2. 确认 Python 版本兼容性
-```bash
-python --version  # 应为 3.8 及以上版本
-```
+**解决方案**：
+1. 运行数据库诊断工具：
+   ```bash
+   cd backend
+   python diagnose_db.py
+   ```
 
-3. 检查 pip 是否正常工作
-```bash
-.\.venv\Scripts\python.exe -m pip --version  # Windows (.venv)
-# 或
-# .\venv\Scripts\python.exe -m pip --version  # Windows (venv)
-./.venv/bin/python -m pip --version         # Linux/Mac (.venv)
-# 或
-# ./venv/bin/python -m pip --version         # Linux/Mac (venv)
-```
+2. 使用统一初始化脚本重新创建数据库：
+   ```bash
+   cd backend
+   python init_combined.py
+   ```
 
-### 启动服务问题
+3. 如果问题仍然存在，可以尝试手动清除数据库并重新启动：
+   ```bash
+   # 删除数据库文件
+   rm backend/app.db
+   # 重新启动服务
+   .\start.ps1
+   ```
 
-如果服务无法正常启动，可以查看以下日志文件：
+### 2. 编码问题
 
-1. 启动脚本日志
-   - 位于 `logs/startup_*.log`
+如果看到中文乱码，可以：
 
-2. 后端服务日志
-   - 检查控制台输出
+1. 确保PowerShell使用UTF-8编码：
+   ```powershell
+   chcp 65001
+   ```
 
-3. 前端服务日志
-   - 检查控制台输出
+2. 确保Python脚本使用UTF-8编码保存：
+   ```python
+   # 文件开头添加
+   # -*- coding: utf-8 -*-
+   ```
 
-### 编码问题
+3. 设置环境变量：
+   ```powershell
+   $env:PYTHONIOENCODING = "utf-8"
+   ```
 
-如果遇到中文显示乱码，可以：
+### 3. 自定义排查步骤
 
-1. 确保所有文件以 UTF-8 with BOM 编码保存
-2. 在 PowerShell 中执行 `chcp 65001` 设置控制台编码为 UTF-8
+如果仍然遇到问题，可以按照以下步骤进行详细排查：
 
-## 源代码管理与 GitHub 连接
+1. **查看日志文件**：
+   - 数据库初始化日志：`backend/db_init_log.txt`
+   - 数据库诊断日志：`backend/db_diagnose_log.txt`
 
-要将本项目连接到 GitHub：
+2. **检查表结构**：
+   ```sql
+   -- 在SQLite中执行
+   .tables
+   .schema users
+   ```
 
-1. 确保已安装并配置 Git
-```bash
-git --version
-git config --global user.name "您的GitHub用户名"
-git config --global user.email "您的GitHub邮箱"
-```
-
-2. 在 GitHub 上创建新仓库
-
-3. 在项目根目录初始化 Git 仓库
-```bash
-git init
-git add .
-git commit -m "初始提交"
-git branch -M main
-git remote add origin https://github.com/您的用户名/any-go.git
-git push -u origin main
-```
+3. **验证数据库连接**：
+   ```python
+   from app.database import engine
+   with engine.connect() as conn:
+       result = conn.execute("SELECT 1").fetchone()
+       print(result)
+   ```
 
 ## 许可证
 
