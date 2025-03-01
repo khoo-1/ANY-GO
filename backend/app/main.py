@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth.router import router as auth_router
+from app.api.packing import router as packing_router
 from app.database import init_db
 
 app = FastAPI(
@@ -20,6 +21,7 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(auth_router, prefix="/api/auth", tags=["认证"])
+app.include_router(packing_router, prefix="/api/packing", tags=["装箱单"])
 
 @app.on_event("startup")
 async def startup_event():

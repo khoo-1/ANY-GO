@@ -1,70 +1,61 @@
 from typing import Optional, List
-from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
-from .base import BaseSchema
+from pydantic import BaseModel, EmailStr, constr
 
-class UserBase(BaseSchema):
+class UserBase(BaseModel):
     """用户基础模式"""
-    username: str
+    username: constr(min_length=3, max_length=50)
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
-    is_active: bool = True
-    role: Optional[str] = None
-    status: str = Field(default="active", pattern="^(active|inactive)$")
-    permissions: List[str] = []
+    is_active: Optional[bool] = True
+    is_superuser: Optional[bool] = False
+    permissions: Optional[List[str]] = None
 
-class UserCreate(BaseModel):
-    """用户创建模型"""
-    username: str
+class UserCreate(UserBase):
+    """创建用户模式"""
+    password: constr(min_length=6, max_length=50)
+
+class UserUpdate(BaseModel):
+    """更新用户模式"""
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
-    password: str
+    password: Optional[constr(min_length=6, max_length=50)] = None
+    is_active: Optional[bool] = None
+    is_superuser: Optional[bool] = None
+    permissions: Optional[List[str]] = None
 
-class UserUpdate(UserBase):
-    """更新用户"""
-    password: Optional[str] = None
-
-class UserInDBBase(UserBase):
-    """数据库中的用户"""
+class UserInDB(UserBase):
+    """数据库中的用户模式"""
     id: int
+    hashed_password: str
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
-class User(UserInDBBase):
-    """返回给API的用户"""
-    disabled: Optional[bool] = None
+class UserResponse(UserBase):
+    """用户响应模式"""
+    id: int
+    created_at: datetime
+    updated_at: datetime
 
-class UserInDB(User):
-    """数据库中完整的用户"""
-    hashed_password: str
-
-class UserResponse(BaseModel):
-    """用户响应模型"""
-    id: str
-    username: str
-    email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
-    is_active: bool
-    role: Optional[str] = None
-    status: str
-    permissions: List[str]
+    class Config:
+        from_attributes = True
 
 class Token(BaseModel):
-    """令牌"""
+    """令牌模式"""
     access_token: str
     token_type: str = "bearer"
 
 class TokenData(BaseModel):
-    """令牌数据"""
-    user_id: Optional[int] = None
+    """令牌数据模式"""
+    username: Optional[str] = None
 
 class LoginRequest(BaseModel):
     """登录请求"""
-    username: str
-    password: str
+    username: constr(min_length=3, max_length=50)
+    password: constr(min_length=6, max_length=50)
 
 class LoginResponse(BaseModel):
     """登录响应"""
@@ -73,10 +64,10 @@ class LoginResponse(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     """修改密码请求"""
-    old_password: str
-    new_password: str = Field(..., min_length=6, max_length=50)
+    old_password: constr(min_length=6, max_length=50)
+    new_password: constr(min_length=6, max_length=50)
 
 class ResetPasswordRequest(BaseModel):
     """重置密码请求"""
     user_id: int
-    new_password: str = Field(..., min_length=6, max_length=50)
+    new_password: constr(min_length=6, max_length=50)

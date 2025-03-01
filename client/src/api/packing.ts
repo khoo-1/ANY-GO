@@ -1,67 +1,73 @@
-import request from '../utils/request'
+import request from '@/utils/request'
 import type {
   PackingList,
   PackingListQuery,
-  PackingListCreateParams,
-  PackingListUpdateParams,
+  PackingListResponse,
+  CreatePackingListParams,
+  UpdatePackingListParams,
+  PackingListExportRequest,
   ImportResult,
-  ExportRequest,
   StoreStatistics
-} from '../types/packing'
+} from '@/types/packing'
+
+const baseUrl = '/api/packing'
 
 export default {
-  // 获取装箱单列表
-  list(params: PackingListQuery) {
-    return request.get<{
-      items: PackingList[]
-      total: number
-      page: number
-      pageSize: number
-    }>('/api/packing-lists', { params })
+  // 获取打包清单列表
+  list(params: PackingListQuery): Promise<PackingListResponse> {
+    // 转换参数名称
+    const queryParams = {
+      page: params.page,
+      page_size: params.pageSize,
+      keyword: params.keyword,
+      status: params.status
+    }
+    return request.get(baseUrl, { params: queryParams })
   },
 
-  // 获取单个装箱单详情
-  get(id: number) {
-    return request.get<PackingList>(`/api/packing-lists/${id}`)
+  // 获取打包清单详情
+  get(id: number): Promise<PackingList> {
+    return request.get(`${baseUrl}/${id}`)
   },
 
-  // 创建装箱单
-  create(data: PackingListCreateParams) {
-    return request.post<PackingList>('/api/packing-lists', data)
+  // 创建打包清单
+  create(data: CreatePackingListParams): Promise<PackingList> {
+    return request.post(baseUrl, data)
   },
 
-  // 更新装箱单
-  update(id: number, data: PackingListUpdateParams) {
-    return request.put<PackingList>(`/api/packing-lists/${id}`, data)
+  // 更新打包清单
+  update(id: number, data: UpdatePackingListParams): Promise<PackingList> {
+    return request.put(`${baseUrl}/${id}`, data)
   },
 
-  // 删除装箱单
-  delete(id: number) {
-    return request.delete(`/api/packing-lists/${id}`)
+  // 删除打包清单
+  delete(id: number): Promise<void> {
+    return request.delete(`${baseUrl}/${id}`)
   },
 
   // 审批装箱单
   approve(id: number) {
-    return request.post(`/api/packing-lists/${id}/approve`)
+    return request.post(`${baseUrl}/${id}/approve`)
   },
 
   // 批量审批装箱单
   batchApprove(ids: number[]) {
-    return request.post('/api/packing-lists/batch-approve', { ids })
+    return request.post(`${baseUrl}/batch-approve`, { ids })
   },
 
   // 导入装箱单
   import(formData: FormData) {
-    return request.post<ImportResult>('/api/packing-lists/import', formData, {
+    return request.post<ImportResult>(`${baseUrl}/import`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     })
   },
 
-  // 导出装箱单
-  export(data: ExportRequest) {
-    return request.post('/api/packing-lists/export', data, {
+  // 导出打包清单
+  export(params: PackingListExportRequest): Promise<Blob> {
+    return request.get(`${baseUrl}/export`, {
+      params,
       responseType: 'blob'
     })
   },
@@ -71,7 +77,7 @@ export default {
     startDate?: string
     endDate?: string
   }) {
-    return request.get<StoreStatistics[]>('/api/packing-lists/statistics/store', {
+    return request.get<StoreStatistics[]>(`${baseUrl}/statistics/store`, {
       params
     })
   }

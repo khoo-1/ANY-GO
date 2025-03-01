@@ -169,12 +169,12 @@ async function handleApprove() {
 
 // 编辑
 function handleEdit() {
-  router.push(`/packing-lists/${packingList.value?.id}/edit`)
+  router.push(`/packing/${packingList.value?.id}/edit`)
 }
 
 // 打印
 function handlePrint() {
-  router.push(`/packing-lists/${packingList.value?.id}/print`)
+  router.push(`/packing/${packingList.value?.id}/print`)
 }
 
 onMounted(() => {

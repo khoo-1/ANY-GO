@@ -49,9 +49,10 @@
 import { ref, reactive } from 'vue'
 import { ElMessage, FormInstance } from 'element-plus'
 import { useRouter } from 'vue-router'
-import authApi from '../api/auth'
+import { useUserStore } from '../stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const loginFormRef = ref<FormInstance>()
 const loading = ref(false)
 
@@ -80,21 +81,21 @@ const handleLogin = async () => {
       // 添加调试日志
       console.log('尝试登录:', loginForm.username)
       
-      // 发送登录请求
-      const response = await authApi.login(loginForm)
-      console.log('登录响应:', response)
+      // 使用store进行登录
+      const success = await userStore.login(loginForm)
       
-      // 存储token
-      if (response && response.token) {
-        localStorage.setItem('token', response.token)
+      if (success) {
         ElMessage.success('登录成功')
         router.push('/')
-      } else {
-        ElMessage.error('登录失败：无效的响应')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('登录错误:', error)
-      ElMessage.error('登录失败，请检查用户名和密码')
+      ElMessage.error(
+        error.response?.data?.detail || 
+        error.response?.data?.message || 
+        error.message || 
+        '登录失败，请检查用户名和密码'
+      )
     } finally {
       loading.value = false
     }

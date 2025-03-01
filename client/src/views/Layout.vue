@@ -36,7 +36,7 @@
             <el-icon><goods /></el-icon>
             <span>商品管理</span>
           </el-menu-item>
-          <el-menu-item index="/packing-lists">
+          <el-menu-item index="/packing">
             <el-icon><document /></el-icon>
             <span>装箱单</span>
           </el-menu-item>
@@ -54,7 +54,7 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, House, Goods, Document } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()

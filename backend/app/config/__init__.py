@@ -1,4 +1,3 @@
-from .database import DatabaseSettings
+from .settings import settings
 
-# 创建数据库配置实例
-settings = DatabaseSettings()
+__all__ = ['settings']

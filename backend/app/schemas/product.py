@@ -1,15 +1,25 @@
 from typing import Optional, List
-from pydantic import BaseModel, Field, validator
 from datetime import datetime
+from pydantic import BaseModel, Field, validator, constr, confloat
 from decimal import Decimal
-from .base import BaseSchema, PageParams
 
-class ProductBase(BaseSchema):
+# 替代BaseSchema的基础分页参数
+class PageParams(BaseModel):
+    """分页参数"""
+    page: int = Field(1, ge=1, description="页码")
+    page_size: int = Field(10, ge=1, le=100, description="每页数量")
+
+class ProductBase(BaseModel):
     """产品基础模式"""
-    sku: str = Field(..., min_length=3, max_length=50)
-    name: str = Field(..., min_length=1, max_length=200)
-    chinese_name: Optional[str] = Field(None, max_length=200)
+    name: constr(min_length=1, max_length=100)
     description: Optional[str] = None
+    sku: constr(min_length=1, max_length=50)
+    unit: Optional[str] = None
+    weight: Optional[confloat(gt=0)] = None
+    length: Optional[confloat(gt=0)] = None
+    width: Optional[confloat(gt=0)] = None
+    height: Optional[confloat(gt=0)] = None
+    chinese_name: Optional[str] = Field(None, max_length=200)
     category: str = Field(default="未分类", max_length=50)
     type: str = Field(..., pattern="^(普货|纺织|混装)$")
     
@@ -39,9 +49,9 @@ class ProductCreate(ProductBase):
     is_auto_created: bool = False
     needs_completion: bool = False
 
-class ProductUpdate(BaseSchema):
+class ProductUpdate(BaseModel):
     """更新产品"""
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    name: Optional[constr(min_length=1, max_length=100)] = None
     chinese_name: Optional[str] = Field(None, max_length=200)
     description: Optional[str] = None
     category: Optional[str] = Field(None, max_length=50)

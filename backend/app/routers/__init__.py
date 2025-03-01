@@ -19,4 +19,4 @@ packing = packing_router
 # packing_lists = packing_lists_router 
 
 # 导出路由器
-__all__ = ['auth_router', 'products_router', 'packing_router'] 
+__all__ = ["auth_router", "products_router", "packing_router"] 

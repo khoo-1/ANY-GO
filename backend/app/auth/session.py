@@ -1,20 +1,17 @@
-from datetime import datetime, timedelta
-from typing import Optional
-from jose import JWTError, jwt
+from fastapi import Depends, HTTPException, status, Cookie
+from fastapi.security import APIKeyCookie
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from ..database import get_db
 from ..models.user import User
-from ..config import settings
 
 # 密码加密上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# OAuth2 密码Bearer
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+# Session cookie
+cookie_scheme = APIKeyCookie(name="session")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """验证密码"""
@@ -23,17 +20,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """获取密码哈希值"""
     return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """创建访问令牌"""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
 
 def get_user(db: Session, username: str) -> Optional[User]:
     """通过用户名获取用户"""
@@ -49,32 +35,32 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[Use
     return user
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    session: str = Cookie(None),
     db: Session = Depends(get_db)
 ) -> User:
     """获取当前用户"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="无效的认证凭据",
-        headers={"WWW-Authenticate": "Bearer"},
+        detail="Not authenticated"
     )
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
+    
+    if not session:
         raise credentials_exception
         
-    user = get_user(db, username)
-    if user is None:
+    try:
+        # 从session中获取用户名
+        username = session
+        user = get_user(db, username)
+        if user is None:
+            raise credentials_exception
+        if user.disabled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="用户已被禁用"
+            )
+        return user
+    except Exception:
         raise credentials_exception
-    if user.disabled:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="用户已被禁用"
-        )
-    return user
 
 def check_permission(required_permission: str):
     """检查权限装饰器"""

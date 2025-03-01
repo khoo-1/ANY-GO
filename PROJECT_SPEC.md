@@ -13,7 +13,7 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
 - Python 3.8+ - 编程语言
 - APScheduler - 任务调度
 - Alembic - 数据库迁移
-- JWT - 用户认证
+-session - 用户认证
 
 ### 前端
 - Vue 3 - 渐进式 JavaScript 框架
@@ -29,7 +29,7 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
 ### 1. 用户管理
 - 用户注册与登录
 - 基于角色的权限控制（管理员、普通用户）
-- JWT 令牌认证
+- 简单的session认证
 - 用户信息管理
 
 ### 2. 产品管理
@@ -224,7 +224,7 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
 
 ### 装箱单明细 (PackingListItem)
 
-- 产品ID: 关联的产品
+- SKU: 关联的产品
   - 必填
   - 外键
 
@@ -270,7 +270,7 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
 
 ### 库存记录 (StockRecord)
 
-- 产品ID: 关联的产品
+- SKU: 关联的产品
   - 必填
   - 外键
 
@@ -367,7 +367,6 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
 2. 数据准确性
    - 多重验证机制
    - 数据一致性检查
-   - 审批流程控制
 
 3. 实时分析
    - 实时库存监控
@@ -405,7 +404,7 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
 
 ### 系统要求
 - Node.js 16+
-- Python 3.8+
+- Python 3.11+
 - PostgreSQL 14+
 - Docker & Docker Compose
 
@@ -457,7 +456,7 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
 - 列表显示
   - 基本信息：店铺、日期、类型
   - 汇总信息：总箱数、总重量、总体积
-  - 状态标识：已审核/未审核
+
 
 ## 数据规则
 
@@ -526,7 +525,7 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
   - SKU管理权限
 
 ### 4. 安全性要求
-- JWT身份认证
+- 简单的session认证
 - 简单的权限控制
 - 关键操作日志记录
 - 数据定期备份
@@ -677,7 +676,7 @@ ANY-GO是一个专为50人以内跨境电商团队设计的协作平台，主要
 - 数据完整性验证
 
 ### 4. 安全规范
-- JWT 身份认证
+- 简单的session认证
 - RBAC 权限控制
 - 数据加密传输
 - SQL注入防护
@@ -737,17 +736,14 @@ any-go/
 - User (用户)
 - Product (产品)
 - StockRecord (库存记录)
-- PackingList (装箱单)
+- Packing (装箱单)
 - ProfitAnalysis (利润分析)
 - OperationLog (操作日志)
 
 ### 分析模型
 - InventoryAnalysis (库存分析)
 - ProductTurnover (商品周转)
-- CategoryTurnover (品类周转)
 - ProductProfit (商品利润)
-- CategoryProfit (品类利润)
-
 ## API 接口
 
 ### RESTful API
@@ -755,13 +751,13 @@ any-go/
 - /api/users - 用户管理
 - /api/products - 产品管理
 - /api/stock - 库存管理
-- /api/packing-lists - 装箱单管理
+- /api/packing - 装箱单管理
 - /api/inventory - 库存分析
 - /api/profit - 利润分析
 - /api/system - 系统管理
 
 ## 安全性要求
-- JWT认证
+- 简单的session认证
 - RBAC权限控制
 - 数据加密
 - HTTPS传输
@@ -769,7 +765,7 @@ any-go/
 
 ## 性能要求
 - API响应时间 < 1s
-- 并发用户数 > 50
+- 并发用户数 > 20
 - 数据库连接池优化
 - 前端资源优化
 - 大数据量导入导出优化
@@ -948,73 +944,7 @@ any-go/
   - 执行记录查看
   - 手动触发功能
 
-## 6. 技术实现
-### 6.1 前端架构
-- HTTP 请求处理
-  - Axios 实例配置
-  - 请求/响应拦截器
-  - 统一错误处理
-  - Token 认证
-- 状态管理
-  - React Context
-  - 用户状态
-  - 全局配置
-- UI组件
-  - Ant Design
-  - 自定义组件
-  - 响应式设计
 
-### 6.2 后端架构
-- Express 中间件
-  - 身份认证
-  - 日志记录
-  - 错误处理
-- 数据库设计
-  - MongoDB Schema
-  - 索引优化
-  - 关联查询
-- 进程管理
-  - PM2 部署
-  - 日志管理
-  - 自动重启
-
-### 6.3 部署方案
-- 本地部署
-  - PM2 进程管理
-  - 日志文件管理
-  - 环境变量配置
-- 开发环境
-  - 热重载
-  - 调试配置
-  - 测试数据
-
-## 7. 安全性
-- 身份认证
-  - JWT Token
-  - Token 刷新机制
-  - 密码加密存储
-- 权限控制
-  - 基于角色的访问控制
-  - API 权限验证
-  - 资源访问控制
-- 数据安全
-  - 备份机制
-  - 数据验证
-  - 敏感信息加密
-
-## 8. 性能优化
-- 前端优化
-  - 按需加载
-  - 缓存策略
-  - 压缩资源
-- 后端优化
-  - 数据库索引
-  - 查询优化
-  - 并发处理
-- 监控告警
-  - 性能监控
-  - 错误告警
-  - 资源使用监控
 ## 代码规范
 
 ### TypeScript 规范
@@ -1067,68 +997,8 @@ any-go/
    }
    ```
 
-### React 组件规范
 
-1. 组件定义
-   - 使用函数组件和 Hooks
-   - 组件名使用大驼峰命名法
-   - Props 类型必须明确定义
-   ```typescript
-   interface UserListProps {
-     users: User[];
-     onUserSelect: (user: User) => void;
-   }
-   
-   const UserList: React.FC<UserListProps> = ({ users, onUserSelect }) => {
-     // 组件实现
-   };
-   ```
 
-2. Hooks 使用
-   - 自定义 Hook 必须以 use 开头
-   - 依赖数组必须完整
-   - 避免过深的 Hook 嵌套
-   ```typescript
-   // 正确
-   const useUserData = (userId: string) => {
-     const [user, setUser] = useState<User | null>(null);
-     
-     useEffect(() => {
-       fetchUser(userId).then(setUser);
-     }, [userId]);
-     
-     return user;
-   };
-   ```
-
-3. 状态管理
-   - 局部状态使用 useState
-   - 复杂状态使用 useReducer
-   - 共享状态使用 Context
-
-### 目录结构规范
-
-```
-client/
-├── src/
-│   ├── components/      # 组件目录
-│   │   ├── common/      # 通用组件
-│   │   ├── layout/      # 布局组件
-│   │   └── pages/       # 页面组件
-│   ├── hooks/           # 自定义 Hooks
-│   ├── services/        # API 服务
-│   ├── types/           # 类型定义
-│   ├── utils/           # 工具函数
-│   └── App.tsx          # 根组件
-│
-server/
-├── src/
-│   ├── controllers/     # 控制器
-│   ├── models/          # 数据模型
-│   ├── routes/          # 路由定义
-│   ├── services/        # 业务逻辑
-│   └── utils/           # 工具函数
-```
 
 ## 数据规范
 
@@ -1148,12 +1018,6 @@ server/
    - textile: 纺织
    - mixed: 混装
 
-3. 商品状态
-   ```typescript
-   type ProductStatus = 'active' | 'inactive';
-   ```
-   - active: 上架
-   - inactive: 下架
 
 ### 装箱单数据
 
@@ -1162,14 +1026,7 @@ server/
    - 示例：`BOX001`, `A001`
    - 范围：同一装箱单内唯一
 
-2. 装箱单状态
-   ```typescript
-   type PackingListStatus = 'pending' | 'approved';
-   ```
-   - pending: 待审核
-   - approved: 已审核
-
-3. 重量和体积
+ 2. 重量和体积
    - 重量单位：kg
    - 体积单位：m³
    - 精度：重量保留2位小数，体积保留3位小数
@@ -1319,9 +1176,7 @@ server/
 ## 安全规范
 
 1. 身份认证
-   - 使用 JWT
-   - Token 过期时间：24小时
-   - 刷新 Token 机制
+   - 使用 简单的session认证
 
 2. 数据验证
    - 使用 Joi 进行请求验证

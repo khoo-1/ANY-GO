@@ -17,7 +17,7 @@ ANY-GO 是一个跨境电商团队协作平台，旨在帮助跨境电商团队�
 - SQLite 数据库 (本地开发)
 - PostgreSQL 数据库 (生产环境)
 - SQLAlchemy ORM
-- JWT 认证
+- Session 认证
 - Alembic 数据库迁移
 
 ## 功能特性
@@ -213,11 +213,53 @@ any-go/
    - 交互式流程，允许用户在关键步骤选择继续或停止
    - 错误日志记录到文件，方便后续分析
 
-## 数据库问题排查
+6. **CORS和身份验证问题修复**：
+   - 修复了前后端跨域请求问题，将通配符 `*` 替换为具体的前端域名
+   - 改进了令牌处理机制，确保正确处理认证和授权
+   - 统一了API路径，确保前后端接口一致
+   - 增强了请求拦截器，自动添加认证令牌到请求头
+   - 改进了错误处理，在认证失败时自动跳转到登录页面
 
-如果遇到数据库相关的问题，可以使用我们提供的诊断工具和解决方案：
+## 常见问题及解决方案
 
-### 1. 数据库表创建问题
+### 1. CORS (跨域资源共享) 问题
+
+如果遇到以下错误：
+```
+Access to XMLHttpRequest at 'http://localhost:8000/api/auth/login' from origin 'http://localhost:5174' has been blocked by CORS policy
+```
+
+**可能原因**：
+- 使用 `withCredentials: true` 时，后端的 `Access-Control-Allow-Origin` 不能为通配符 `*`
+- 前端和后端的域名不匹配
+- 缺少必要的CORS响应头
+
+**解决方案**：
+1. 在后端 `main.py` 中明确指定允许的前端域名：
+   ```python
+   app.add_middleware(
+       CORSMiddleware,
+       allow_origins=["http://localhost:5174"],  # 指定具体域名
+       allow_credentials=True,
+       allow_methods=["*"],
+       allow_headers=["*"],
+   )
+   ```
+
+2. 确保前端请求的URL与后端路由结构匹配：
+   - 后端路由前缀是 `/api`
+   - 认证路由是 `/api/auth/login`
+
+3. 确保正确设置认证令牌：
+   ```typescript
+   // 在请求拦截器中添加认证令牌
+   const token = localStorage.getItem('token')
+   if (token) {
+     config.headers['Authorization'] = `Bearer ${token}`
+   }
+   ```
+
+### 2. 数据库表创建问题
 
 如果遇到 "no such table: users" 等错误，可能是因为：
 - SQLAlchemy ORM模型注册问题（最常见原因）
@@ -248,7 +290,7 @@ any-go/
    .\start.ps1
    ```
 
-### 2. 编码问题
+### 3. 编码问题
 
 如果看到中文乱码，可以：
 
@@ -264,7 +306,7 @@ any-go/
 
 3. 确保所有Python文件使用UTF-8编码保存。
 
-### 3. 常见问题快速解决方案
+### 4. 常见问题快速解决方案
 
 | 问题 | 解决方案 |
 |------|----------|
@@ -317,3 +359,63 @@ any-go/
 ## 许可证
 
 MIT
+
+## 认证系统
+
+系统使用基于session的认证机制：
+
+1. 用户登录后，服务器会设置一个包含用户名的httpOnly cookie
+2. 所有需要认证的API请求都会自动携带这个cookie
+3. 服务器通过验证cookie中的session来确认用户身份
+
+### API认证流程
+
+1. 登录：
+   - 请求：POST /api/auth/login
+   - 参数：username, password
+   - 响应：设置session cookie并返回用户信息
+
+2. 登出：
+   - 请求：POST /api/auth/logout
+   - 响应：清除session cookie
+
+3. 获取当前用户：
+   - 请求：GET /api/auth/me
+   - 响应：返回当前登录用户信息
+
+### 安全性说明
+
+- 所有cookie都设置了httpOnly标志，防止XSS攻击
+- 使用SameSite=Lax策略，防止CSRF攻击
+- 会话有效期为30分钟，过期后需要重新登录
+- 所有API请求都需要有效的session cookie
+
+## 仪表盘功能
+
+### 统计数据 API
+
+- 请求：GET /api/dashboard/statistics
+- 响应：返回系统整体统计数据
+  ```json
+  {
+    "total_packing_lists": 100,
+    "total_products": 500,
+    "recent_packing_lists": 20,
+    "recent_products": 50
+  }
+  ```
+
+### 趋势数据 API
+
+- 请求：GET /api/dashboard/trends
+- 响应：返回最近7天的数据趋势
+  ```json
+  [
+    {
+      "date": "2024-03-20",
+      "packing_count": 5,
+      "product_count": 15
+    },
+    // ... 其他日期数据
+  ]
+  ```

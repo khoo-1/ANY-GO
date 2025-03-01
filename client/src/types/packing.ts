@@ -1,19 +1,9 @@
+import type { Product } from './product'
+
 export interface BoxQuantity {
   boxNo: string
   quantity: number
   specs?: string
-}
-
-export interface Product {
-  id: number
-  sku: string
-  name: string
-  chineseName: string
-  type: string
-  category?: string
-  cost: number
-  price: number
-  stock: number
 }
 
 export interface PackingListItem {
@@ -36,66 +26,65 @@ export interface BoxSpecs {
   totalPieces: number
 }
 
+export interface PackingItem {
+  id: number
+  productId: number
+  product: Product
+  quantity: number
+  note?: string
+}
+
 export interface PackingList {
-  id?: number
+  id: number
   code: string
-  storeName: string
-  type: string
-  status: 'pending' | 'approved'
-  totalBoxes: number
-  totalWeight: number
-  totalVolume: number
-  totalPieces: number
-  remarks?: string
-  items: PackingListItem[]
-  boxSpecs: BoxSpecs[]
+  status: '待审核' | '已审核' | '已取消'
+  storeName?: string
+  type?: string
+  totalBoxes?: number
+  totalPieces?: number
+  totalValue?: number
+  totalWeight?: number
+  items: PackingItem[]
   createdAt: string
   updatedAt: string
 }
 
 export interface PackingListQuery {
-  page?: number
-  pageSize?: number
+  page: number
+  pageSize: number
   keyword?: string
-  type?: string
-  status?: string
-  startDate?: string
-  endDate?: string
+  status?: PackingList['status']
 }
 
-export interface PackingListCreateParams {
-  storeName: string
-  type: string
-  remarks?: string
+export interface PackingListResponse {
+  items: PackingList[]
+  total: number
+}
+
+export interface CreatePackingListParams {
   items: {
     productId: number
     quantity: number
-    boxQuantities: BoxQuantity[]
+    note?: string
   }[]
-  boxSpecs: BoxSpecs[]
 }
 
-export interface PackingListUpdateParams {
-  storeName?: string
-  type?: string
-  status?: string
-  remarks?: string
-  items?: {
-    productId: number
-    quantity: number
-    boxQuantities: BoxQuantity[]
-  }[]
-  boxSpecs?: BoxSpecs[]
+export type UpdatePackingListParams = Partial<CreatePackingListParams>
+
+export interface PackingListExportRequest {
+  ids?: number[]
+  keyword?: string
+  status?: PackingList['status']
+  fields: string[]
 }
 
 export interface ImportResult {
   success: boolean
   message: string
-  total: number
-  created: number
-  updated: number
-  failed: number
-  errors: string[]
+  totalCount: number
+  successCount: number
+  failureCount: number
+  errors?: string[]
 }
 
 export interface ExportRequest {
@@ -105,10 +94,10 @@ export interface ExportRequest {
 }
 
 export interface StoreStatistics {
+  storeId: number
   storeName: string
-  totalLists: number
-  totalProducts: number
-  totalPieces: number
-  totalBoxes: number
-  totalValue: number
+  totalOrders: number
+  totalAmount: number
+  averageAmount: number
+  lastOrderDate: string
 } 

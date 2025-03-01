@@ -7,12 +7,18 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import os
 from dotenv import load_dotenv
+from fastapi.responses import JSONResponse
 
-from app.database import get_db
-from app.models import User as UserModel
-from app.schemas.token import Token
-from app.crud.user import authenticate_user
-from app.dependencies import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from ..database import get_db
+from ..models import User as UserModel
+from ..schemas.user import Token, TokenData, UserCreate, UserResponse
+from ..core.security import (
+    verify_password,
+    create_access_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    get_current_active_user
+)
+from ..crud.user import get_user_by_username, create_user
 
 # 加载环境变量
 load_dotenv()
@@ -20,24 +26,18 @@ load_dotenv()
 # 安全配置
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 # 密码哈希
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 router = APIRouter(
-    prefix="/api/auth",
-    tags=["auth"]
+    prefix="/auth",
+    tags=["认证"],
+    responses={404: {"description": "未找到"}},
 )
 
-# 模型定义
-class Token(BaseModel):
-    token: str
-    token_type: str
-
-class TokenData(BaseModel):
-    username: str | None = None
+# 移除重复的Token和TokenData类定义
 
 class UserBase(BaseModel):
     username: str
@@ -59,6 +59,10 @@ class User(UserBase):
 class UserInDB(User):
     hashed_password: str
 
+class LoginResponse(BaseModel):
+    """登录响应模型"""
+    username: str
+
 # 工具函数
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -78,16 +82,13 @@ def get_user(db, username):
         print(f"未找到用户: {username}")
     return user
 
-def authenticate_user(db, username, password):
-    user = get_user(db, username)
+def authenticate_user(db: Session, username: str, password: str):
+    """验证用户"""
+    user = get_user_by_username(db, username)
     if not user:
-        print(f"认证失败: 用户 {username} 不存在")
         return False
-    # 确保使用hashed_password
-    if not pwd_context.verify(password, user.hashed_password):
-        print(f"认证失败: 用户 {username} 密码不匹配")
+    if not verify_password(password, user.hashed_password):
         return False
-    print(f"认证成功: 用户 {username}")
     return user
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
@@ -143,26 +144,42 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    """用户登录"""
-    print(f"尝试登录: 用户名={form_data.username}")
+    """登录获取令牌"""
+    # 添加调试日志
+    print(f"收到登录请求: username={form_data.username}")
     
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
+        print(f"认证失败: username={form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    print(f"认证成功: username={form_data.username}, user_id={user.id}")
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, 
-        expires_delta=access_token_expires
+        data={"sub": user.username}, expires_delta=access_token_expires
     )
     
-    print(f"登录成功: 用户={user.username}")
-    return {"token": access_token, "token_type": "bearer"}
+    # 打印生成的令牌信息
+    print(f"生成令牌: username={user.username}, expires_in={ACCESS_TOKEN_EXPIRE_MINUTES}分钟")
+    
+    return {"access_token": access_token, "token_type": "bearer"}
 
-@router.get("/me", response_model=User)
-async def read_users_me(current_user: UserModel = Depends(get_current_active_user)):
+@router.post("/register", response_model=UserResponse)
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    """注册新用户"""
+    db_user = get_user_by_username(db, username=user.username)
+    if db_user:
+        raise HTTPException(
+            status_code=400,
+            detail="用户名已被注册"
+        )
+    return create_user(db=db, user=user)
+
+@router.get("/me", response_model=UserResponse)
+async def read_users_me(current_user = Depends(get_current_active_user)):
+    """获取当前用户信息"""
     return current_user 

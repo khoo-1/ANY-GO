@@ -6,11 +6,12 @@
 
 from .user import User
 from .product import Product
-from .packing_list import PackingList, PackingItem
+from .packing import PackingList, PackingItem, BoxSpecs
 
 __all__ = [
-    'User',
-    'Product',
-    'PackingList',
-    'PackingItem'
+    "User",
+    "Product",
+    "PackingList",
+    "PackingItem",
+    "BoxSpecs"
 ]

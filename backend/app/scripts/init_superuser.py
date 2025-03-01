@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.user import User
-from app.auth import get_password_hash
+from app.auth.jwt import get_password_hash
 
 def init_superuser():
     """初始化超级管理员账号"""
@@ -16,8 +16,12 @@ def init_superuser():
         # 创建超级管理员账号
         admin_user = User(
             username="admin",
-            password=get_password_hash("admin123"),
-            is_superuser=True
+            email="admin@example.com",
+            full_name="系统管理员",
+            hashed_password=get_password_hash("admin123"),
+            role="admin",
+            permissions="packing:read,packing:write",  # 添加所需的权限
+            disabled=False
         )
         
         db.add(admin_user)

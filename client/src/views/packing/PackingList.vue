@@ -1,10 +1,9 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2>装箱单列表</h2>
+      <h2>装箱单</h2>
       <div class="header-actions">
         <el-button type="primary" @click="handleAdd">新增装箱单</el-button>
-        <el-button @click="handleImport">导入</el-button>
         <el-button @click="showExportDialog">导出</el-button>
       </div>
     </div>
@@ -12,30 +11,14 @@
     <!-- 搜索表单 -->
     <el-form :model="searchForm" inline>
       <el-form-item label="关键词">
-        <el-input v-model="searchForm.keyword" placeholder="店铺名称" />
-      </el-form-item>
-      <el-form-item label="类型">
-        <el-select v-model="searchForm.type" clearable>
-          <el-option label="普货" value="普货" />
-          <el-option label="纺织" value="纺织" />
-          <el-option label="混装" value="混装" />
-        </el-select>
+        <el-input v-model="searchForm.keyword" placeholder="装箱单编号" />
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="searchForm.status" clearable>
-          <el-option label="待审核" value="pending" />
-          <el-option label="已审核" value="approved" />
+          <el-option label="待审核" value="待审核" />
+          <el-option label="已审核" value="已审核" />
+          <el-option label="已取消" value="已取消" />
         </el-select>
-      </el-form-item>
-      <el-form-item label="日期">
-        <el-date-picker
-          v-model="dateRange"
-          type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          value-format="YYYY-MM-DD"
-        />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="handleSearch">搜索</el-button>
@@ -50,27 +33,16 @@
       border
       style="width: 100%"
     >
-      <el-table-column prop="storeName" label="店铺名称" min-width="150" />
-      <el-table-column prop="type" label="类型" width="100" />
-      <el-table-column label="箱数/件数" width="120">
+      <el-table-column prop="code" label="装箱单编号" width="150" />
+      <el-table-column label="商品数量" width="100">
         <template #default="{ row }">
-          {{ row.totalBoxes }} / {{ row.totalPieces }}
-        </template>
-      </el-table-column>
-      <el-table-column label="重量/体积" width="150">
-        <template #default="{ row }">
-          {{ row.totalWeight.toFixed(2) }}kg / {{ row.totalVolume.toFixed(2) }}m³
-        </template>
-      </el-table-column>
-      <el-table-column prop="totalValue" label="总价值" width="120">
-        <template #default="{ row }">
-          ¥{{ row.totalValue.toFixed(2) }}
+          {{ row.items.length }}
         </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.status === 'approved' ? 'success' : ''">
-            {{ row.status === 'approved' ? '已审核' : '待审核' }}
+          <el-tag :type="getStatusType(row.status)">
+            {{ row.status }}
           </el-tag>
         </template>
       </el-table-column>
@@ -79,27 +51,19 @@
           {{ new Date(row.createdAt).toLocaleString() }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="250" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleView(row)">查看</el-button>
           <el-button 
-            v-if="row.status === 'pending'"
+            v-if="row.status === '待审核'"
             link 
             type="primary" 
             @click="handleEdit(row)"
           >
             编辑
           </el-button>
-          <el-button 
-            v-if="row.status === 'pending'"
-            link 
-            type="success" 
-            @click="handleApprove(row)"
-          >
-            审核
-          </el-button>
           <el-popconfirm
-            v-if="row.status === 'pending'"
+            v-if="row.status === '待审核'"
             title="确定要删除该装箱单吗？"
             @confirm="handleDelete(row)"
           >
@@ -114,8 +78,8 @@
     <!-- 分页 -->
     <div class="pagination-container">
       <el-pagination
-        v-model:current-page="page"
-        v-model:page-size="pageSize"
+        :current-page="page"
+        :page-size="pageSize"
         :total="total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next"
@@ -124,55 +88,20 @@
       />
     </div>
 
-    <!-- 导入对话框 -->
-    <el-dialog
-      v-model="importDialogVisible"
-      title="导入装箱单"
-      width="400px"
-    >
-      <el-upload
-        class="upload-demo"
-        drag
-        action="#"
-        :auto-upload="false"
-        :on-change="handleFileChange"
-        accept=".xlsx,.xls"
-      >
-        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-        <div class="el-upload__text">
-          将文件拖到此处，或<em>点击上传</em>
-        </div>
-        <template #tip>
-          <div class="el-upload__tip">
-            只能上传 xlsx/xls 文件
-          </div>
-        </template>
-      </el-upload>
-      <template #footer>
-        <el-button @click="importDialogVisible = false">取消</el-button>
-        <el-button
-          type="primary"
-          @click="handleImportSubmit"
-          :loading="importing"
-          :disabled="!importFile"
-        >
-          确定
-        </el-button>
-      </template>
-    </el-dialog>
-
     <!-- 导出对话框 -->
     <el-dialog
       v-model="exportDialogVisible"
       title="导出装箱单"
       width="400px"
     >
-      <el-form :model="exportForm" label-width="120px">
-        <el-form-item label="包含箱子规格">
-          <el-switch v-model="exportForm.includeBoxSpecs" />
-        </el-form-item>
-        <el-form-item label="包含商品详情">
-          <el-switch v-model="exportForm.includeProductDetails" />
+      <el-form :model="exportForm" label-width="100px">
+        <el-form-item label="导出字段">
+          <el-checkbox-group v-model="exportForm.fields">
+            <el-checkbox label="code">装箱单编号</el-checkbox>
+            <el-checkbox label="status">状态</el-checkbox>
+            <el-checkbox label="items">商品明细</el-checkbox>
+            <el-checkbox label="createdAt">创建时间</el-checkbox>
+          </el-checkbox-group>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -190,35 +119,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
-import type { PackingList, PackingListQuery } from '@/types/packing'
 import packingApi from '@/api/packing'
+import type { PackingList, PackingListQuery } from '@/types/packing'
 
 const router = useRouter()
 
 // 搜索表单
-const searchForm = reactive<PackingListQuery>({
+const searchForm = reactive<Partial<PackingListQuery>>({
   keyword: '',
-  type: '',
-  status: '',
-  startDate: '',
-  endDate: ''
-})
-
-// 日期范围
-const dateRange = computed({
-  get: () => {
-    return searchForm.startDate && searchForm.endDate
-      ? [searchForm.startDate, searchForm.endDate]
-      : []
-  },
-  set: (val: string[]) => {
-    searchForm.startDate = val[0] || ''
-    searchForm.endDate = val[1] || ''
-  }
+  status: undefined
 })
 
 // 表格数据
@@ -228,41 +140,56 @@ const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 
-// 导入相关
-const importDialogVisible = ref(false)
-const importing = ref(false)
-const importFile = ref<File>()
-
-// 导出相关
+// 导出对话框
 const exportDialogVisible = ref(false)
 const exporting = ref(false)
 const exportForm = reactive({
-  includeBoxSpecs: true,
-  includeProductDetails: true
+  fields: ['code', 'status', 'items', 'createdAt']
 })
 
 // 加载数据
 async function loadData() {
   loading.value = true
   try {
-    const { data } = await packingApi.list({
+    // 添加调试日志
+    console.log('开始加载数据:', {
       page: page.value,
       pageSize: pageSize.value,
-      keyword: searchForm.keyword || undefined,
-      type: searchForm.type || undefined,
-      status: searchForm.status || undefined,
-      startDate: searchForm.startDate || undefined,
-      endDate: searchForm.endDate || undefined
+      ...searchForm
     })
-    tableData.value = data.items
-    total.value = data.total
-  } catch (error) {
+
+    const response = await packingApi.list({
+      page: page.value,
+      pageSize: pageSize.value,
+      ...searchForm
+    })
+
+    // 添加调试日志
+    console.log('加载数据成功:', response)
+
+    tableData.value = response.items
+    total.value = response.total
+  } catch (error: any) {
     console.error('加载数据失败:', error)
-    ElMessage.error('加载数据失败')
+    
+    // 如果是401错误，不显示错误消息（因为request.ts中已经处理了）
+    if (error.response?.status !== 401) {
+      ElMessage.error(
+        error.response?.data?.detail || 
+        error.response?.data?.message || 
+        error.message || 
+        '加载数据失败'
+      )
+    }
   } finally {
     loading.value = false
   }
 }
+
+// 初始化
+onMounted(async () => {
+  await loadData()
+})
 
 // 搜索
 function handleSearch() {
@@ -273,43 +200,29 @@ function handleSearch() {
 // 重置搜索
 function handleReset() {
   searchForm.keyword = ''
-  searchForm.type = ''
-  searchForm.status = ''
-  searchForm.startDate = ''
-  searchForm.endDate = ''
+  searchForm.status = undefined
   handleSearch()
 }
 
 // 新增装箱单
 function handleAdd() {
-  router.push('/packing-lists/create')
+  router.push('/packing/create')
 }
 
 // 查看装箱单
 function handleView(row: PackingList) {
-  router.push(`/packing-lists/${row.id}`)
+  router.push(`/packing/${row.id}`)
 }
 
 // 编辑装箱单
 function handleEdit(row: PackingList) {
-  router.push(`/packing-lists/${row.id}/edit`)
-}
-
-// 审核装箱单
-async function handleApprove(row: PackingList) {
-  try {
-    await packingApi.approve(row.id!)
-    ElMessage.success('审核成功')
-    loadData()
-  } catch (error: any) {
-    ElMessage.error(error.message || '审核失败')
-  }
+  router.push(`/packing/${row.id}/edit`)
 }
 
 // 删除装箱单
 async function handleDelete(row: PackingList) {
   try {
-    await packingApi.delete(row.id!)
+    await packingApi.delete(row.id)
     ElMessage.success('删除成功')
     if (tableData.value.length === 1 && page.value > 1) {
       page.value--
@@ -317,36 +230,6 @@ async function handleDelete(row: PackingList) {
     loadData()
   } catch (error: any) {
     ElMessage.error(error.message || '删除失败')
-  }
-}
-
-// 显示导入对话框
-function handleImport() {
-  importDialogVisible.value = true
-  importFile.value = undefined
-}
-
-// 文件选择
-function handleFileChange(file: any) {
-  importFile.value = file.raw
-}
-
-// 提交导入
-async function handleImportSubmit() {
-  if (!importFile.value) return
-  
-  importing.value = true
-  try {
-    const formData = new FormData()
-    formData.append('file', importFile.value)
-    await packingApi.import(formData)
-    ElMessage.success('导入成功')
-    importDialogVisible.value = false
-    loadData()
-  } catch (error: any) {
-    ElMessage.error(error.message || '导入失败')
-  } finally {
-    importing.value = false
   }
 }
 
@@ -359,11 +242,12 @@ function showExportDialog() {
 async function handleExport() {
   exporting.value = true
   try {
-    const { data } = await packingApi.export({
-      ids: [],
-      ...exportForm
+    const response = await packingApi.export({
+      fields: exportForm.fields,
+      keyword: searchForm.keyword,
+      status: searchForm.status
     })
-    const url = window.URL.createObjectURL(new Blob([data]))
+    const url = window.URL.createObjectURL(new Blob([response]))
     const link = document.createElement('a')
     link.href = url
     link.download = `装箱单_${new Date().toLocaleDateString()}.xlsx`
@@ -390,10 +274,15 @@ function handleCurrentChange(val: number) {
   loadData()
 }
 
-// 初始化
-onMounted(() => {
-  loadData()
-})
+// 获取状态标签类型
+function getStatusType(status: PackingList['status']) {
+  const map: Record<PackingList['status'], 'warning' | 'success' | 'info'> = {
+    '待审核': 'warning',
+    '已审核': 'success',
+    '已取消': 'info'
+  }
+  return map[status]
+}
 </script>
 
 <style scoped>
@@ -425,15 +314,5 @@ onMounted(() => {
 
 :deep(.el-form--inline .el-form-item) {
   margin-right: 16px;
-}
-
-.upload-demo {
-  text-align: center;
-}
-
-.el-upload__tip {
-  color: #909399;
-  font-size: 12px;
-  margin-top: 8px;
 }
 </style> 

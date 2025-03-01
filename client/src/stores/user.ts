@@ -1,42 +1,57 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
-export interface UserInfo {
-  id: number
-  username: string
-  role: string
-  permissions: string[]
-}
+import authApi from '../api/auth'
 
 export const useUserStore = defineStore('user', () => {
-  const token = ref<string>(localStorage.getItem('token') || '')
-  const userInfo = ref<UserInfo | null>(null)
+  // 状态
+  const username = ref<string | null>(null)
+  const isLoggedIn = ref(false)
 
-  function setToken(newToken: string) {
-    token.value = newToken
-    localStorage.setItem('token', newToken)
+  // 动作
+  const login = async (loginData: { username: string; password: string }) => {
+    try {
+      const response = await authApi.login(loginData)
+      username.value = response.username
+      isLoggedIn.value = true
+      return true
+    } catch (error) {
+      console.error('登录失败:', error)
+      return false
+    }
   }
 
-  function setUserInfo(info: UserInfo) {
-    userInfo.value = info
+  const logout = async () => {
+    try {
+      await authApi.logout()
+      username.value = null
+      isLoggedIn.value = false
+      return true
+    } catch (error) {
+      console.error('登出失败:', error)
+      return false
+    }
   }
 
-  function clearUserInfo() {
-    token.value = ''
-    userInfo.value = null
-    localStorage.removeItem('token')
-  }
-
-  function hasPermission(permission: string): boolean {
-    return userInfo.value?.permissions.includes(permission) || false
+  const checkAuth = async () => {
+    try {
+      const user = await authApi.getCurrentUser()
+      username.value = user.username
+      isLoggedIn.value = true
+      return true
+    } catch (error) {
+      username.value = null
+      isLoggedIn.value = false
+      return false
+    }
   }
 
   return {
-    token,
-    userInfo,
-    setToken,
-    setUserInfo,
-    clearUserInfo,
-    hasPermission
+    // 状态
+    username,
+    isLoggedIn,
+    // 动作
+    login,
+    logout,
+    checkAuth
   }
 }) 

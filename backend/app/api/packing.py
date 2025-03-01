@@ -19,13 +19,13 @@ from ..schemas.packing import (
 )
 from ..auth.jwt import check_permission
 
-router = APIRouter(prefix="/packing-lists", tags=["packing-lists"])
+router = APIRouter(tags=["装箱单"])
 
 @router.post("", response_model=PackingListResponse)
 async def create_packing_list(
     data: PackingListCreate,
     db: Session = Depends(get_db),
-    current_user = Depends(check_permission("packing-lists:write"))
+    current_user = Depends(check_permission("packing:write"))
 ):
     """
     创建装箱单
@@ -110,7 +110,7 @@ async def update_packing_list(
     id: int,
     data: PackingListUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(check_permission("packing-lists:write"))
+    current_user = Depends(check_permission("packing:write"))
 ):
     """
     更新装箱单
@@ -218,7 +218,7 @@ async def update_packing_list(
 async def import_packing_lists(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user = Depends(check_permission("packing-lists:write"))
+    current_user = Depends(check_permission("packing:write"))
 ):
     """
     从Excel导入装箱单
@@ -306,7 +306,7 @@ async def import_packing_lists(
 async def export_packing_lists(
     request: ExportRequest,
     db: Session = Depends(get_db),
-    current_user = Depends(check_permission("packing-lists:read"))
+    current_user = Depends(check_permission("packing:read"))
 ):
     """
     导出装箱单到Excel
@@ -382,4 +382,43 @@ async def export_packing_lists(
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+@router.get("", response_model=PackingListResponse)
+async def get_packing_lists(
+    page: int = 1,
+    page_size: int = 20,
+    keyword: str = None,
+    status: str = None,
+    db: Session = Depends(get_db),
+    current_user = Depends(check_permission("packing:read"))
+):
+    """
+    获取装箱单列表
+    """
+    try:
+        # 构建查询
+        query = db.query(PackingList)
+        
+        # 应用过滤条件
+        if keyword:
+            query = query.filter(PackingList.code.ilike(f"%{keyword}%"))
+        if status:
+            query = query.filter(PackingList.status == status)
+            
+        # 计算总数
+        total = query.count()
+        
+        # 分页
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+        
+        return {
+            "items": items,
+            "total": total
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) 
