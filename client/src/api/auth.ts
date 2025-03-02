@@ -50,13 +50,16 @@ export default {
       console.log('登录响应原始数据:', response)
       
       // 保存令牌到localStorage
-      if (response && typeof response === 'object' && 'access_token' in response) {
-        localStorage.setItem('token', response.access_token)
-        localStorage.setItem('token_type', response.token_type || 'bearer')
-        return response as LoginResponse
-      } else {
-        throw new Error('登录响应格式不正确')
+      if (response && typeof response === 'object') {
+        const responseData = response as unknown as LoginResponse
+        if ('access_token' in responseData) {
+          localStorage.setItem('token', responseData.access_token)
+          localStorage.setItem('token_type', responseData.token_type || 'bearer')
+          return responseData
+        }
       }
+      
+      throw new Error('登录响应格式不正确')
     } catch (error) {
       console.error('登录请求失败:', error)
       throw error
@@ -86,7 +89,7 @@ export default {
     try {
       const response = await request.get<UserInfo>('/api/auth/me')
       if (response && typeof response === 'object') {
-        return response as UserInfo
+        return response as unknown as UserInfo
       } else {
         throw new Error('获取用户信息响应格式不正确')
       }

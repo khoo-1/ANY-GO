@@ -12,7 +12,7 @@ from app.core.security import get_current_active_user
 from ..crud.product import get_product, get_products, create_product, update_product, delete_product
 
 router = APIRouter(
-    prefix="/products",
+    prefix="/api/products",
     tags=["产品"],
     responses={404: {"description": "未找到"}},
 )

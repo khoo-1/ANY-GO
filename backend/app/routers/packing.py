@@ -28,7 +28,7 @@ from ..schemas.packing import (
 )
 
 router = APIRouter(
-    prefix="/packing",
+    prefix="/api/packing",
     tags=["打包"],
     responses={404: {"description": "未找到"}},
 )

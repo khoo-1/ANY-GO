@@ -248,18 +248,57 @@ Access to XMLHttpRequest at 'http://localhost:8000/api/auth/login' from origin '
 
 2. 确保前端请求的URL与后端路由结构匹配：
    - 后端路由前缀是 `/api`
-   - 认证路由是 `/api/auth/login`
 
-3. 确保正确设置认证令牌：
+### 2. API路由前缀不匹配问题
+
+如果遇到以下错误：
+```
+GET /dashboard/statistics HTTP/1.1" 404 Not Found
+GET /dashboard/trends HTTP/1.1" 404 Not Found
+GET /packing?page=1&page_size=20&keyword= HTTP/1.1" 404 Not Found
+```
+
+**可能原因**：
+- 前端请求的API路径与后端路由定义不匹配
+- 后端路由前缀配置错误
+- 路由没有正确注册到FastAPI应用中
+
+**解决方案**：
+1. 确保后端路由前缀与前端API调用一致：
+   ```python
+   # 在后端路由文件中
+   router = APIRouter(
+       prefix="/api/dashboard",  # 使用完整的API路径前缀
+       tags=["仪表盘"],
+   )
+   ```
+
+2. 在主应用中正确注册所有路由：
+   ```python
+   # 在main.py中
+   from app.routers.dashboard import router as dashboard_router
+   
+   # 添加API前缀路由
+   api_app = FastAPI(title="ANY-GO API")
+   api_app.include_router(auth_router)
+   api_app.include_router(products_router)
+   api_app.include_router(packing_router)
+   api_app.include_router(dashboard_router)  # 确保所有路由都注册
+   ```
+
+3. 确保前端API调用使用正确的路径：
    ```typescript
-   // 在请求拦截器中添加认证令牌
-   const token = localStorage.getItem('token')
-   if (token) {
-     config.headers['Authorization'] = `Bearer ${token}`
+   // 在前端API文件中
+   const baseUrl = '/api/dashboard'
+   
+   export default {
+     getStatistics() {
+       return request.get(`${baseUrl}/statistics`)
+     }
    }
    ```
 
-### 2. 数据库表创建问题
+### 3. 数据库表创建问题
 
 如果遇到 "no such table: users" 等错误，可能是因为：
 - SQLAlchemy ORM模型注册问题（最常见原因）
@@ -290,7 +329,7 @@ Access to XMLHttpRequest at 'http://localhost:8000/api/auth/login' from origin '
    .\start.ps1
    ```
 
-### 3. 编码问题
+### 4. 编码问题
 
 如果看到中文乱码，可以：
 
@@ -306,7 +345,7 @@ Access to XMLHttpRequest at 'http://localhost:8000/api/auth/login' from origin '
 
 3. 确保所有Python文件使用UTF-8编码保存。
 
-### 4. 常见问题快速解决方案
+### 5. 常见问题快速解决方案
 
 | 问题 | 解决方案 |
 |------|----------|

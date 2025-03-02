@@ -9,7 +9,7 @@
             </div>
           </template>
           <div class="card-content">
-            <el-statistic :value="0">
+            <el-statistic :value="statistics.total_products">
               <template #title>
                 <div style="display: inline-flex; align-items: center">
                   产品种类
@@ -30,7 +30,7 @@
             </div>
           </template>
           <div class="card-content">
-            <el-statistic :value="0">
+            <el-statistic :value="statistics.total_packing_lists">
               <template #title>
                 <div style="display: inline-flex; align-items: center">
                   装箱单
@@ -47,14 +47,14 @@
         <el-card class="box-card">
           <template #header>
             <div class="card-header">
-              <span>系统用户</span>
+              <span>最近活动</span>
             </div>
           </template>
           <div class="card-content">
-            <el-statistic :value="0">
+            <el-statistic :value="statistics.recent_packing_lists">
               <template #title>
                 <div style="display: inline-flex; align-items: center">
-                  用户数
+                  最近7天装箱单
                   <el-icon style="margin-left: 4px">
                     <User />
                   </el-icon>
@@ -120,8 +120,38 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { Document, Goods, User, Plus, Search } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import dashboardApi from '@/api/dashboard'
+import { ElMessage } from 'element-plus'
+
+const router = useRouter()
+
+// 定义接口
+interface Statistics {
+  total_products: number
+  total_packing_lists: number
+  recent_packing_lists: number
+  recent_products: number
+}
+
+interface TrendItem {
+  date: string
+  packing_count: number
+  product_count: number
+}
+
+// 统计数据
+const statistics = ref<Statistics>({
+  total_products: 0,
+  total_packing_lists: 0,
+  recent_packing_lists: 0,
+  recent_products: 0
+})
+
+// 趋势数据
+const trends = ref<TrendItem[]>([])
 
 const activities = ref([
   {
@@ -134,19 +164,46 @@ const activities = ref([
   }
 ])
 
+// 获取统计数据
+const fetchStatistics = async () => {
+  try {
+    const res = await dashboardApi.getStatistics()
+    statistics.value = res.data
+  } catch (error) {
+    console.error('获取统计数据失败:', error)
+    ElMessage.error('获取统计数据失败')
+  }
+}
+
+// 获取趋势数据
+const fetchTrends = async () => {
+  try {
+    const res = await dashboardApi.getTrends()
+    trends.value = res.data
+  } catch (error) {
+    console.error('获取趋势数据失败:', error)
+    ElMessage.error('获取趋势数据失败')
+  }
+}
+
 const handleQuickAction = (type: string) => {
   switch (type) {
     case 'product':
-      // 跳转到新增产品页面
+      router.push('/products/create')
       break
     case 'packing':
-      // 跳转到创建装箱单页面
+      router.push('/packing/create')
       break
     case 'search':
-      // 跳转到库存查询页面
+      router.push('/inventory')
       break
   }
 }
+
+onMounted(() => {
+  fetchStatistics()
+  fetchTrends()
+})
 </script>
 
 <style scoped>
